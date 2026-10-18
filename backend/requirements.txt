@@ -6,10 +6,10 @@ polars==1.44.2
 pyarrow==25.0.1
 pandas==2.3.3
 pydantic==2.13.5
-instructor==1.17.0
-openai==3.3.0
 mlforecast==1.1.0
 lightgbm==4.7.0
 utilsforecast==0.2.16
-
-
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.9
+openpyxl>=3.1.2
+reportlab>=4.0.0

@@ -1,130 +1,89 @@
-# Demand Forecasting API
+# POS Analytics & Demand Forecasting Engine
 
-This repository contains a robust, containerized REST API that performs automated Demand Forecasting. It is designed to be easily deployable in B2B environments where businesses can upload their historical sales data and receive highly accurate, seasonal forecasts.
+Este repositorio contiene la arquitectura backend y el soporte móvil para una herramienta de análisis de datos y apoyo a puntos de venta (POS). Diseñada para operar de forma modular, ligera y 100% local, garantizando la privacidad de los datos comerciales sin depender de servicios en la nube ni telemetría.
 
-The API implements a fully automated end-to-end data pipeline powered by Semantic AI and advanced Machine Learning.
+## Arquitectura y Módulos
 
-## Architecture & Algorithms
+### 1. Ingesta y Auditoría de Datos
+- **Conexiones automáticas (Solo Lectura):** Conexión no invasiva a bases de datos relacionales locales (MySQL y PostgreSQL) mediante consultas SELECT exclusivas.
+- **Carga manual:** Ingesta de archivos CSV y Excel (.xlsx).
+- **Pipeline de limpieza:** Detección de duplicados, validación de tipos e integridad de transacciones con reportes de auditoría.
+- **Base interna:** Almacenamiento local optimizado exclusivamente en PostgreSQL.
 
-### 1. Semantic Data Profiling (LLM & Schema Cache)
-Instead of forcing users to strictly format their data, this API is intelligent enough to analyze a raw CSV or Parquet file and logically deduce the meaning of each column. 
-- The system reads a sample of the uploaded dataset and extracts its metadata profile.
-- An in-memory cryptographic cache (SHA-256 schema signature) recognizes previously uploaded structures instantly, bypassing the LLM on recurrent pipelines.
-- When new structures are detected, a local **Large Language Model (LLM)** via `Ollama` acts as a Data Engineer, inferring the correct ontology (e.g., identifying which column represents `TARGET_METRIC`, `TIMESTAMP`, `ITEM_ID`, or `COVARIATE`).
-- We use **Pydantic** and **Instructor** to constrain the LLM's output to strict, deterministic JSON formatting.
+### 2. Motor Analítico y Métricas de Negocio (Polars)
+- Agregaciones vectorizadas en memoria con **Polars** para alto rendimiento y bajo consumo de RAM.
+- **KPIs ejecutivos:** Ventas totales, tickets, ticket promedio y comparativas dinámicas (día vs. día anterior, mes vs. mes anterior, año vs. año anterior).
+- **Rotación de inventario:** Clasificación Pareto ABC (80/15/5), velocidad de venta diaria y alertas tempranas de reposición.
+- **Desempeño de ventas:** Métricas descriptivas por vendedor y porcentaje de contribución.
 
-### 2. High-Performance ETL (Polars)
-Handling millions of rows requires extreme optimization.
-- The pipeline uses **Polars (LazyFrames)** to perform out-of-core streaming computations. It processes datasets larger than RAM by evaluating execution graphs efficiently.
-- Native ingestion of both `.csv` and `.parquet` files.
-- Automatic **Downcasting** is applied (e.g., converting strings to Categoricals, and `Float64` to `Float32`) to halve the memory footprint.
+### 3. Motor Predictivo de Demanda (LightGBM & MLForecast)
+- Inferencia de demanda sobre series temporales por SKU utilizando **LightGBM** optimizado para CPU multinúcleo.
+- Bandas de incertidumbre conformal (`p10` y `p90`) garantizadas como no negativas (`>= 0`).
+- Cálculo dinámico de **Stock de Seguridad** y **Punto de Reorden (ROP)** cuando se especifica el tiempo de entrega de proveedores (`lead_time`).
+- Concurrencia acotada con semáforos para proteger los recursos de la máquina en el punto de venta.
 
-### 3. Machine Learning Forecasting (LightGBM & MLForecast)
-- The pipeline dynamically infers the chronological frequency of the data (Hourly, Daily, Weekly, or Monthly).
-- Adaptive model hyperparameters automatically adjust based on dataset row volume and series cardinality to avoid overfitting and maximize training throughput.
-- Based on the inferred frequency, it calculates appropriate lagged features (e.g., 7-day, 14-day, and 28-day lags for daily data) to capture deep seasonality.
-- The core algorithm is **LightGBM** (Gradient Boosting), heavily optimized for execution speed and parallelization across CPU cores.
-- Empirical conformal prediction intervals (`p10` and `p90`) provide well-calibrated distribution-free uncertainty bounds with guaranteed non-negative boundaries.
-- When supply chain lead time is specified, the API automatically calculates suggested Safety Stock and Reorder Points (ROP) per SKU.
+### 4. Licenciamiento SaaS y Exportaciones
+- Validación de licencias SaaS offline mediante firmas criptográficas HMAC-SHA256, sin necesidad de conexión externa.
+- Generación de reportes tabulares en **Excel (.xlsx)** y resúmenes ejecutivos en **PDF**.
 
-## Repository Structure
+---
+
+## Estructura del Repositorio
 
 ```text
 .
-├── backend/            # Analytical engine & FastAPI services (Python)
-│   ├── main.py
-│   ├── pipeline_semantico.py
+├── backend/            # Servicios FastAPI y motor analítico (Python)
+│   ├── analytics/      # Métricas, forecasting, exportaciones y licencias
+│   ├── connectors/     # Conectores relacionales e ingesta
+│   ├── schemas/        # Contratos y modelos de datos Pydantic
 │   ├── entrenar_modelo.py
-│   └── requirements.txt
-├── frontend/           # Mobile user interface (React Native)
+│   ├── main.py
+│   ├── requirements.txt
+│   └── .env.example
+├── frontend/           # Aplicación móvil (React Native)
 │   └── .gitkeep
 └── README.md
 ```
 
-## Getting Started
+---
 
-### Prerequisites
+## Guía de Inicio
 
-- **Python 3.10+** (for `backend`)
-- **Node.js 18+** & **npm / yarn** (for `frontend`)
-- **Ollama**: Ensure you have Ollama running locally with the `qwen2.5` model installed (`ollama run qwen2.5`).
+### Requisitos Previos
 
-### Backend Setup
+- **Python 3.10+** (para `backend`)
+- **PostgreSQL 14+** (base de datos local del sistema)
+- **Node.js 18+** & **npm / yarn** (para `frontend`)
+
+### Configuración del Backend
 
 ```bash
 cd backend
 python -m venv .venv
+
 # Windows PowerShell:
 .venv\Scripts\Activate.ps1
 # Linux/macOS:
 # source .venv/bin/activate
 
 pip install -r requirements.txt
+cp .env.example .env
+
+# Iniciar servidor local
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-The API will be available locally at `http://localhost:8000`.
+El servicio estará disponible en `http://localhost:8000`.
 
-### Frontend Setup (React Native)
+### Documentación Interactiva (Swagger / OpenAPI)
 
-The `frontend/` directory is prepared for the UI/UX team to initialize the React Native project (e.g., using Expo or React Native CLI).
+En modo de desarrollo (`ENVIRONMENT=development`), la documentación interactiva está disponible en:
+- **Swagger UI:** [http://localhost:8000/docs](http://localhost:8000/docs)
+- **ReDoc:** [http://localhost:8000/redoc](http://localhost:8000/redoc)
 
-## Configuration (Environment Variables)
+---
 
-The backend service can be configured via a `.env` file in `backend/`:
+## Licencia y Privacidad
 
-| Variable | Default Value | Description |
-| :--- | :--- | :--- |
-| `ENVIRONMENT` | `development` | Operating environment. When set to `production`, interactive documentation (`/docs`, `/redoc`, `/openapi.json`) is automatically disabled. |
-| `OLLAMA_BASE_URL` | `http://localhost:11434/v1` | Base URL pointing to the Ollama server hosting the local LLM. |
-| `API_KEY` | *(empty)* | Optional secret key for endpoint protection. When specified, requests must supply this key via the `X-API-Key` header. |
-| `ALLOWED_ORIGINS` | *(local addresses)* | Comma-separated list of allowed CORS origins for web integrations (e.g., `http://localhost:5173,http://localhost:3000`). |
-
-## API Usage & Documentation
-
-### Interactive Documentation
-
-The API exposes interactive API documentation interfaces in development mode:
-
-- **Swagger UI**: [http://localhost:8000/docs](http://localhost:8000/docs)
-- **ReDoc Alternative**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
-- **OpenAPI Schema**: [http://localhost:8000/openapi.json](http://localhost:8000/openapi.json)
-
-In `production` mode (`ENVIRONMENT=production`), these documentation endpoints are completely disabled to prevent unintended schema exposure.
-
-### Endpoints
-
-#### `GET /health`
-Verifies service availability and health status.
-- **Response**: `{"status": "healthy", "service": "demand-forecasting-api"}`
-
-#### `POST /predict-demand/`
-Executes end-to-end dataset profiling, ETL processing, and machine learning demand forecasting.
-
-- **Payload**: A structured `.csv` or `.parquet` file (`multipart/form-data`).
-- **Query Parameters**:
-  - `h` (int, optional, default: `7`, range: `1` to `90`): Number of time steps to forecast into the future.
-  - `lead_time` (int, optional, default: `0`, range: `0` to `180`): Supplier lead time in days for inventory safety stock and reorder point calculation.
-- **Headers**:
-  - `X-API-Key` *(optional, required only if `API_KEY` is configured on the server)*.
-- **Response Format**:
-  - `pronostico`: Forecasted demand per `unique_id` and timestamp `ds` with conformal uncertainty bands (`p10`, `p90`).
-  - `catalogo`: Extracted static product and location metadata (categories, descriptions).
-  - `anomalias`: Historical out-of-distribution sales records flagged by residual deviation analysis.
-  - `metricas_inventario` *(optional, calculated when `lead_time > 0`)*: Suggested safety stock, daily consumption average, and reorder point (ROP) per series.
-
-## Enterprise Reliability & Security
-
-The service is built following modern enterprise standards, featuring:
-- Request rate limiting via SlowAPI.
-- Streaming file upload size validation (50 MB limit) with protection against memory exhaustion.
-- Bounded concurrency semaphore limiting simultaneous model training tasks.
-- Sanitized input handling and generic client-side error responses to prevent stack trace disclosure.
-
-## License & Legal Policies
-
-- **License**: Released under the terms of the **MIT License**. See [LICENSE](LICENSE) for details.
-- **Disclaimer**: Use of algorithmic forecasts is subject to the conditions detailed in [DISCLAIMER.md](DISCLAIMER.md).
-
-
-
+- **Licencia:** Distribuido bajo términos de la **MIT License**. Consulta [LICENSE](LICENSE) para más detalles.
+- **Aviso Legal:** El procesamiento es 100% local. Consulta [DISCLAIMER.md](DISCLAIMER.md) para condiciones sobre el uso de pronósticos algorítmicos.
