@@ -38,3 +38,20 @@ Este documento registra cronológicamente cada componente, servicio y esquema im
   - `calculate_temporal_comparison`: Agrupación dinámica por intervalos (`dia`, `semana`, `mes`, `ano`) y cálculo de variaciones secuenciales.
   - `calculate_products_turnover`: Clasificación ABC de productos basada en la regla de Pareto (80/15/5), cálculo de velocidad de venta diaria, estimación de días restantes de inventario y bandera booleana de alerta de reorden.
   - `calculate_sellers_performance`: Cálculo descriptivo de participación por vendedor respecto a la facturación global de la tienda.
+
+---
+
+## 3. Adaptación del Motor Predictivo (`backend/analytics/forecasting.py`)
+
+- **Fecha:** 2026-10-18
+- **Archivos creados:**
+  - `backend/analytics/forecasting.py`
+- **Propósito:**
+  Extraer series temporales históricas de ventas por producto desde la base de datos interna PostgreSQL y generar pronósticos de demanda a horizontes de 7, 14 o 30 días, integrando intervalos empíricos de incertidumbre y métricas de inventario (stock de seguridad y punto de reorden).
+- **Funcionalidades Implementadas:**
+  - Concurrencia acotada con `threading.BoundedSemaphore(2)` y recolección forzada de basura (`gc.collect`) para proteger la memoria del servidor local.
+  - Extracción y agregación diaria en SQL (`v.sku` como `unique_id`, `DATE(v.fecha)` como `ds`, `SUM(v.cantidad)` como `y`).
+  - Imputación cronológica con `utilsforecast.preprocessing.fill_gaps`.
+  - Hiperparámetros dinámicos para `LGBMRegressor` según la densidad de filas y series maduras.
+  - Intervalos de incertidumbre conformal (`p10`, `p90`) acotados estrictamente a valores no negativos (`>= 0`).
+  - Cálculo automático de Stock de Seguridad (nivel de servicio 95%) y Punto de Reorden (ROP) cuando se proporciona el tiempo de entrega de proveedores (`lead_time`).
