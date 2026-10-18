@@ -55,3 +55,19 @@ Este documento registra cronológicamente cada componente, servicio y esquema im
   - Hiperparámetros dinámicos para `LGBMRegressor` según la densidad de filas y series maduras.
   - Intervalos de incertidumbre conformal (`p10`, `p90`) acotados estrictamente a valores no negativos (`>= 0`).
   - Cálculo automático de Stock de Seguridad (nivel de servicio 95%) y Punto de Reorden (ROP) cuando se proporciona el tiempo de entrega de proveedores (`lead_time`).
+
+---
+
+## 4. Módulo de Exportación Multiformato (`backend/analytics/exporter.py`)
+
+- **Fecha:** 2026-10-18
+- **Archivos creados:**
+  - `backend/analytics/exporter.py`
+- **Propósito:**
+  Generar reportes ejecutivos consolidados en memoria (`io.BytesIO`) en formatos Excel (`.xlsx`) y PDF sin dejar archivos residuales en el disco local del cliente.
+- **Funcionalidades Implementadas:**
+  - `generate_excel_report`: Creación de libro Excel multi-pestaña con `openpyxl`:
+    - Pestaña 1: "KPIs Ejecutivos" (Ventas, tickets, variaciones día/mes/año).
+    - Pestaña 2: "Rotación y Stock" (Inventario, días de stock, Pareto ABC, alertas).
+    - Pestaña 3: "Vendedores" (Participación porcentual y ticket promedio).
+  - `generate_pdf_report`: Generación de documento PDF ejecutivo mediante `reportlab.platypus` con tablas formateadas, paleta sobria de colores, fecha de corte, desglose de inventario y leyenda legal de EULA/privacidad local.
