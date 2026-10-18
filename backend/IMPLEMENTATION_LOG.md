@@ -71,3 +71,39 @@ Este documento registra cronológicamente cada componente, servicio y esquema im
     - Pestaña 2: "Rotación y Stock" (Inventario, días de stock, Pareto ABC, alertas).
     - Pestaña 3: "Vendedores" (Participación porcentual y ticket promedio).
   - `generate_pdf_report`: Generación de documento PDF ejecutivo mediante `reportlab.platypus` con tablas formateadas, paleta sobria de colores, fecha de corte, desglose de inventario y leyenda legal de EULA/privacidad local.
+
+---
+
+## 5. Servicio de Validación de Licencias SaaS (`backend/analytics/license.py`)
+
+- **Fecha:** 2026-10-18
+- **Archivos creados:**
+  - `backend/analytics/license.py`
+- **Propósito:**
+  Gestionar la validación y activación de suscripciones comerciales de forma 100% offline y local, garantizando la privacidad del punto de venta sin depender de conexiones remotas a la nube.
+- **Funcionalidades Implementadas:**
+  - `verify_license`: Verificación con doble mecanismo:
+    1. Soporte para claves demo/desarrollo (`TC-STARTER-DEMO-2027`, `TC-PRO-DEMO-2027`, `TC-ENTERPRISE-DEMO-2027`).
+    2. Algoritmo criptográfico HMAC-SHA256 para formato comercial `TC-<PLAN>-<YYYYMMDD>-<HASH8>`, validando fecha de expiración y concordancia con el identificador único de terminal (`pos_identifier`).
+  - Matriz de características por nivel de plan (Starter, Pro, Enterprise), desacoplando qué endpoints y capacidades se activan según la suscripción.
+
+---
+
+## 6. Enrutador de FastAPI e Integración de Endpoints (`backend/analytics/router.py`, `backend/main.py`)
+
+- **Fecha:** 2026-10-18
+- **Archivos creados/modificados:**
+  - `backend/analytics/router.py`
+  - `backend/main.py`
+  - `backend/.env.example`
+- **Propósito:**
+  Exponer los servicios analíticos y de licenciamiento a través de rutas RESTful en FastAPI, configuradas con control de tasa (`slowapi`), manejo de errores y compatibilidad CORS para la app React Native.
+- **Rutas Registradas:**
+  - `GET /api/analytics/kpis`: Retorna resumen ejecutivo con métricas de ventas y deltas temporales.
+  - `GET /api/analytics/temporal-comparison`: Evolución secuencial y variación porcentual (día, semana, mes, año).
+  - `GET /api/analytics/inventory-turnover`: Clasificación ABC de productos, rotación y alertas de reposición.
+  - `GET /api/analytics/sellers`: Reporte descriptivo de ventas acumuladas por vendedor y porcentaje de aporte.
+  - `POST /api/analytics/predict-demand`: Disparo del pipeline predictivo LightGBM desde PostgreSQL con semáforo de concurrencia.
+  - `GET /api/analytics/export/excel`: Descarga en streaming del reporte multi-pestaña en formato `.xlsx`.
+  - `GET /api/analytics/export/pdf`: Descarga en streaming del informe ejecutivo estructurado en `.pdf`.
+  - `POST /api/license/verify`: Endpoint de activación y verificación de licencia para la Pantalla 1 (Setup) de la aplicación móvil.
