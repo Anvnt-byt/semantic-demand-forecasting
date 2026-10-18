@@ -11,8 +11,6 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
-from pipeline_semantico import procesar_csv_a_parquet
-from entrenar_modelo import generar_pronostico
 from analytics.router import analytics_router, license_router
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
@@ -75,79 +73,4 @@ def verify_api_key(api_key: str = Security(API_KEY_HEADER)):
 
 @app.get("/health")
 def health_check():
-    return {"status": "healthy", "service": "demand-forecasting-api"}
-
-@app.post("/predict-demand/")
-@limiter.limit("10/minute")
-def predict_demand(
-    request: Request,
-    file: UploadFile = File(...),
-    h: int = Query(7, ge=1, le=90, description="Horizonte de pronóstico"),
-    lead_time: int = Query(0, ge=0, le=180, description="Tiempo de entrega en días para cálculo de inventario"),
-    api_key: str = Security(verify_api_key)
-):
-    filename_lower = (file.filename or "").lower()
-    if not (filename_lower.endswith('.csv') or filename_lower.endswith('.parquet')):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Tipo de archivo no permitido. El archivo debe tener extensión .csv o .parquet."
-        )
-    acquired = CONCURRENCY_SEMAPHORE.acquire(blocking=False)
-    if not acquired:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="El servidor ha alcanzado su capacidad máxima de cómputo en paralelo. Intente de nuevo en un momento."
-        )
-
-    temp_input_path = None
-    temp_parquet_path = None
-    total_bytes_read = 0
-
-    try:
-        suffix = ".parquet" if filename_lower.endswith('.parquet') else ".csv"
-        with NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
-            temp_input_path = temp_file.name
-            while True:
-                chunk = file.file.read(CHUNK_SIZE_BYTES)
-                if not chunk:
-                    break
-                total_bytes_read += len(chunk)
-                if total_bytes_read > MAX_UPLOAD_SIZE_BYTES:
-                    raise HTTPException(
-                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                        detail="El archivo excede el tamaño máximo permitido."
-                    )
-                temp_file.write(chunk)
-
-        logging.info("Archivo recibido con exito (%d bytes). Iniciando pipeline semantico.", total_bytes_read)
-        temp_parquet_path = procesar_csv_a_parquet(temp_input_path)
-        resultados = generar_pronostico(temp_parquet_path, h=h, lead_time=lead_time)
-
-        return resultados
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logging.error("Excepcion no controlada durante el procesamiento: %s", str(e), exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="No fue posible procesar el conjunto de datos. Verifique que el archivo sea un CSV estructurado con registros temporales y métricas de venta."
-        )
-
-    finally:
-        CONCURRENCY_SEMAPHORE.release()
-        if temp_input_path and os.path.exists(temp_input_path):
-            try:
-                os.remove(temp_input_path)
-            except OSError as err:
-                logging.warning("No se pudo eliminar archivo temporal de entrada: %s", err)
-
-        if temp_parquet_path and os.path.exists(temp_parquet_path):
-            try:
-                os.remove(temp_parquet_path)
-            except OSError as err:
-                logging.warning("No se pudo eliminar archivo temporal Parquet: %s", err)
-        import gc
-        if 'resultados' in locals():
-            del resultados
-        gc.collect()
+    return {"status": "healthy", "service": "pos-analytics-api"}
