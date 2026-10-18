@@ -27,24 +27,51 @@ Handling millions of rows requires extreme optimization.
 - Empirical conformal prediction intervals (`p10` and `p90`) provide well-calibrated distribution-free uncertainty bounds with guaranteed non-negative boundaries.
 - When supply chain lead time is specified, the API automatically calculates suggested Safety Stock and Reorder Points (ROP) per SKU.
 
-## Prerequisites
+## Repository Structure
 
-- **Docker** and **Docker Compose**
-- **Ollama**: Ensure you have an instance of Ollama running on your host machine with the `qwen2.5` model installed (`ollama run qwen2.5`).
-
-## Deployment (Docker)
-
-To deploy the API in a background container:
-
-```bash
-docker-compose up --build -d
+```text
+.
+├── backend/            # Analytical engine & FastAPI services (Python)
+│   ├── main.py
+│   ├── pipeline_semantico.py
+│   ├── entrenar_modelo.py
+│   └── requirements.txt
+├── frontend/           # Mobile user interface (React Native)
+│   └── .gitkeep
+└── README.md
 ```
 
-This will expose the API locally on port `8000`.
+## Getting Started
+
+### Prerequisites
+
+- **Python 3.10+** (for `backend`)
+- **Node.js 18+** & **npm / yarn** (for `frontend`)
+- **Ollama**: Ensure you have Ollama running locally with the `qwen2.5` model installed (`ollama run qwen2.5`).
+
+### Backend Setup
+
+```bash
+cd backend
+python -m venv .venv
+# Windows PowerShell:
+.venv\Scripts\Activate.ps1
+# Linux/macOS:
+# source .venv/bin/activate
+
+pip install -r requirements.txt
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+The API will be available locally at `http://localhost:8000`.
+
+### Frontend Setup (React Native)
+
+The `frontend/` directory is prepared for the UI/UX team to initialize the React Native project (e.g., using Expo or React Native CLI).
 
 ## Configuration (Environment Variables)
 
-The service can be configured via environment variables in `docker-compose.yml` or a `.env` file:
+The backend service can be configured via a `.env` file in `backend/`:
 
 | Variable | Default Value | Description |
 | :--- | :--- | :--- |
@@ -68,7 +95,7 @@ In `production` mode (`ENVIRONMENT=production`), these documentation endpoints a
 ### Endpoints
 
 #### `GET /health`
-Verifies service availability and container health status.
+Verifies service availability and health status.
 - **Response**: `{"status": "healthy", "service": "demand-forecasting-api"}`
 
 #### `POST /predict-demand/`
@@ -89,7 +116,6 @@ Executes end-to-end dataset profiling, ETL processing, and machine learning dema
 ## Enterprise Reliability & Security
 
 The service is built following modern enterprise standards, featuring:
-- Non-root container execution (`appuser` UID 1001).
 - Request rate limiting via SlowAPI.
 - Streaming file upload size validation (50 MB limit) with protection against memory exhaustion.
 - Bounded concurrency semaphore limiting simultaneous model training tasks.

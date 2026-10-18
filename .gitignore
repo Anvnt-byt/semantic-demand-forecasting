@@ -6,4 +6,6 @@ __pycache__/
 .env
 node_modules/
 dist/
-frontend/
+.expo/
+npm-debug.*
+*.tsbuildinfo
