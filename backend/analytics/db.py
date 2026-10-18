@@ -29,13 +29,16 @@ def get_engine() -> Engine:
     global _engine
     if _engine is None:
         url = get_database_url()
-        _engine = create_engine(
-            url,
-            pool_pre_ping=True,
-            pool_size=5,
-            max_overflow=10,
-            future=True
-        )
+        if url.startswith("sqlite"):
+            _engine = create_engine(url, connect_args={"check_same_thread": False}, future=True)
+        else:
+            _engine = create_engine(
+                url,
+                pool_pre_ping=True,
+                pool_size=5,
+                max_overflow=10,
+                future=True
+            )
     return _engine
 
 def query_to_polars(sql: str, params: Optional[dict] = None) -> pl.DataFrame:

@@ -126,21 +126,24 @@ def calculate_temporal_comparison(
     """
     Genera comparativas cronológicas entre periodos consecutivos.
     """
-    trunc_map = {
-        "dia": "day",
-        "semana": "week",
-        "mes": "month",
-        "ano": "year"
-    }
-    date_trunc = trunc_map.get(tipo, "month")
+    from analytics.db import get_engine
+    engine = get_engine()
+    if engine.dialect.name == "sqlite":
+        trunc_formats = {"dia": "%Y-%m-%d", "semana": "%Y-%W", "mes": "%Y-%m-01", "ano": "%Y-01-01"}
+        fmt = trunc_formats.get(tipo, "%Y-%m-01")
+        periodo_sql = f"strftime('{fmt}', fecha)"
+    else:
+        trunc_map = {"dia": "day", "semana": "week", "mes": "month", "ano": "year"}
+        date_trunc = trunc_map.get(tipo, "month")
+        periodo_sql = f"DATE_TRUNC('{date_trunc}', fecha)::DATE"
 
     sql = f"""
     SELECT 
-        DATE_TRUNC('{date_trunc}', fecha)::DATE AS periodo,
+        {periodo_sql} AS periodo,
         COALESCE(SUM(total), 0) AS ventas,
         COUNT(DISTINCT id_venta) AS transacciones
     FROM ventas
-    GROUP BY DATE_TRUNC('{date_trunc}', fecha)
+    GROUP BY {periodo_sql}
     ORDER BY periodo DESC
     LIMIT :limit
     """
@@ -182,6 +185,7 @@ def calculate_products_turnover(window_days: int = 30) -> ProductsTurnoverRespon
     """
     Calcula rotación de inventario, clasificación ABC y alertas de reorden por SKU.
     """
+    fecha_inicio = datetime.utcnow() - timedelta(days=window_days)
     sql = """
     SELECT 
         v.sku,
@@ -192,11 +196,11 @@ def calculate_products_turnover(window_days: int = 30) -> ProductsTurnoverRespon
         COALESCE(MAX(i.stock_minimo), 0) AS stock_minimo
     FROM ventas v
     LEFT JOIN inventario i ON v.sku = i.sku
-    WHERE v.fecha >= NOW() - MAKE_INTERVAL(days => :dias)
+    WHERE v.fecha >= :fecha_inicio
     GROUP BY v.sku
     ORDER BY ingresos DESC
     """
-    df = query_to_polars(sql, {"dias": window_days})
+    df = query_to_polars(sql, {"fecha_inicio": fecha_inicio})
 
     if df.is_empty():
         return ProductsTurnoverResponse(

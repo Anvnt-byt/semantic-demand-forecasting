@@ -39,20 +39,20 @@ def generate_demand_forecast(
 
     try:
         # 1. Extracción de series históricas diarias por SKU
-        sql = """
+        fecha_corte = datetime.utcnow() - timedelta(days=365)
+        params = {"fecha_corte": fecha_corte}
+        sku_filter = ""
+        if sku_list:
+            sku_filter = " AND v.sku IN :skus"
+            params["skus"] = tuple(sku_list)
+
+        sql = f"""
         SELECT 
             v.sku AS unique_id,
-            DATE(v.fecha)::TEXT AS ds,
-            COALESCE(SUM(v.cantidad), 0)::FLOAT AS y
+            DATE(v.fecha) AS ds,
+            COALESCE(SUM(v.cantidad), 0) AS y
         FROM ventas v
-        WHERE v.fecha >= NOW() - INTERVAL '1 year'
-        """
-        params = {}
-        if sku_list:
-            sql += " AND v.sku = ANY(:skus)"
-            params["skus"] = sku_list
-
-        sql += """
+        WHERE v.fecha >= :fecha_corte {sku_filter}
         GROUP BY v.sku, DATE(v.fecha)
         ORDER BY v.sku, ds ASC
         """
