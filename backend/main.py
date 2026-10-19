@@ -10,12 +10,11 @@ from fastapi.responses import JSONResponse
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-
 from pipeline_semantico import procesar_csv_a_parquet
 from entrenar_modelo import generar_pronostico
 from database.connection import init_db
 from routers.ingestion_router import router as ingestion_router
-
+from analytics.router import analytics_router, license_router
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
 CHUNK_SIZE_BYTES = 1024 * 1024  # 1 MB
@@ -73,6 +72,9 @@ app.add_middleware(
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
+
+app.include_router(analytics_router)
+app.include_router(license_router)
 
 def verify_api_key(api_key: str = Security(API_KEY_HEADER)):
     if EXPECTED_API_KEY:

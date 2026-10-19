@@ -1,3 +1,5 @@
+"""Módulo de esquemas de validación y contratos Pydantic."""
+
 from schemas.models_schema import VentaRecord, InventarioRecord, VendedorRecord, LineaVentaRecord
 from schemas.ingestion import (
     TargetEntity,
@@ -8,6 +10,21 @@ from schemas.ingestion import (
     AuditReport,
     ErrorDetail,
     IngestionStatusResponse
+)
+from schemas.analytics import (
+    GranularityEnum,
+    KPIResponse,
+    TemporalComparisonItem,
+    TemporalComparisonResponse,
+    TurnoverItem,
+    TurnoverResponse,
+    SellerItem,
+    SellerPerformanceResponse,
+    ForecastRequest,
+    DailyForecastPoint,
+    ProductForecastResponse,
+    LicenseVerifyRequest,
+    LicenseVerifyResponse
 )
 
 __all__ = [
@@ -22,5 +39,18 @@ __all__ = [
     "POSSyncRequest",
     "AuditReport",
     "ErrorDetail",
-    "IngestionStatusResponse"
+    "IngestionStatusResponse",
+    "GranularityEnum",
+    "KPIResponse",
+    "TemporalComparisonItem",
+    "TemporalComparisonResponse",
+    "TurnoverItem",
+    "TurnoverResponse",
+    "SellerItem",
+    "SellerPerformanceResponse",
+    "ForecastRequest",
+    "DailyForecastPoint",
+    "ProductForecastResponse",
+    "LicenseVerifyRequest",
+    "LicenseVerifyResponse"
 ]
