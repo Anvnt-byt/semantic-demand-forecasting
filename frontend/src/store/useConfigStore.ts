@@ -1,12 +1,19 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 
+export type OnboardingStep = 'license' | 'ingestion' | 'completed';
+export type ActiveSection = 'dashboard' | 'license' | 'ingestion';
+
 interface ConfigState {
   backendHost: string;
   backendPort: number;
   useMocks: boolean;
   isOnline: boolean;
   lastPingMs: number | null;
+  onboardingStep: OnboardingStep;
+  activeSection: ActiveSection;
+  setOnboardingStep: (step: OnboardingStep) => Promise<void>;
+  setActiveSection: (section: ActiveSection) => void;
   setBackendConfig: (host: string, port: number) => Promise<void>;
   setUseMocks: (useMocks: boolean) => void;
   getBaseUrl: () => string;
@@ -22,6 +29,25 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   useMocks: true, // Default to true for resilient offline testing/dev, connects to live backend when disabled
   isOnline: false,
   lastPingMs: null,
+  onboardingStep: 'license',
+  activeSection: 'dashboard',
+
+  setActiveSection: (section: ActiveSection) => {
+    set({ activeSection: section });
+  },
+
+  setOnboardingStep: async (step: OnboardingStep) => {
+    set({ onboardingStep: step });
+    try {
+      const { backendHost, backendPort } = get();
+      await SecureStore.setItemAsync(
+        CONFIG_STORAGE_KEY,
+        JSON.stringify({ backendHost, backendPort, onboardingStep: step })
+      );
+    } catch {
+      // Storage fallback
+    }
+  },
 
   getBaseUrl: () => {
     const { backendHost, backendPort } = get();
@@ -31,11 +57,12 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
 
   setBackendConfig: async (host: string, port: number) => {
     const sanitizedHost = host.trim().replace(/\/+$/, '');
+    const { onboardingStep } = get();
     set({ backendHost: sanitizedHost, backendPort: port });
     try {
       await SecureStore.setItemAsync(
         CONFIG_STORAGE_KEY,
-        JSON.stringify({ backendHost: sanitizedHost, backendPort: port })
+        JSON.stringify({ backendHost: sanitizedHost, backendPort: port, onboardingStep })
       );
     } catch {
       // Storage fallback
@@ -59,6 +86,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
           set({
             backendHost: parsed.backendHost,
             backendPort: Number(parsed.backendPort),
+            onboardingStep: parsed.onboardingStep || 'license',
           });
         }
       }

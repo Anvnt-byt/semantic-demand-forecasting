@@ -9,7 +9,9 @@ import {
   Alert,
 } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
+import { useToast } from '../context/ToastContext';
 import { useLicenseStore } from '../store/useLicenseStore';
+import { useConfigStore } from '../store/useConfigStore';
 import {
   testDatabaseConnectionApi,
   triggerDatabaseIngestionApi,
@@ -22,9 +24,15 @@ import { TactileButton } from '../components/common/TactileButton';
 import { MetricBadge } from '../components/common/MetricBadge';
 import { ErrorBanner, BannerMessage } from '../components/common/ErrorBanner';
 
-export const IngestionAuditScreen: React.FC = () => {
+interface IngestionAuditScreenProps {
+  onComplete?: () => void;
+}
+
+export const IngestionAuditScreen: React.FC<IngestionAuditScreenProps> = ({ onComplete }) => {
   const { colors } = useTheme();
+  const { showToast } = useToast();
   const { hasModule } = useLicenseStore();
+  const { onboardingStep, setOnboardingStep } = useConfigStore();
 
   const isIngestionAllowed = hasModule('pos_ingestion');
   const isAuditAllowed = hasModule('audit_pipeline');
@@ -80,16 +88,13 @@ export const IngestionAuditScreen: React.FC = () => {
         engine,
         read_only_verified: readOnlyVerified,
       });
-      setBanner({
-        type: 'success',
-        message: `${res.message}. ${res.rowsDetected ? `(${res.rowsDetected} registros listos para ingesta)` : ''}`,
-      });
+      showToast(
+        `${res.message} ${res.rowsDetected ? `(${res.rowsDetected} registros listos para ingesta)` : ''}`,
+        { type: 'success' }
+      );
     } catch (err: unknown) {
       const errorObj = err as { message?: string };
-      setBanner({
-        type: 'error',
-        message: errorObj.message || 'Fallo de conexión a la base de datos.',
-      });
+      showToast(errorObj.message || 'Fallo de conexión a la base de datos.', { type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -97,9 +102,8 @@ export const IngestionAuditScreen: React.FC = () => {
 
   const handleSyncDb = async () => {
     if (!isIngestionAllowed) {
-      setBanner({
-        type: 'forbidden',
-        message: 'Acceso Denegado (HTTP 403): Su plan actual no cuenta con sincronización de base de datos relacional.',
+      showToast('Acceso Denegado (HTTP 403): Su plan actual no cuenta con sincronización de base de datos relacional.', {
+        type: 'error',
       });
       return;
     }
@@ -121,17 +125,20 @@ export const IngestionAuditScreen: React.FC = () => {
 
       setMetrics(res.metricas_saneamiento);
       setPipelineStatus(res.status);
-      setBanner({
-        type: 'success',
-        message: `${res.mensaje} Se sanearon y cargaron ${res.metricas_saneamiento.filas_procesadas} registros en ${res.metricas_saneamiento.tiempo_procesamiento_ms}ms.`,
-      });
+      showToast(
+        `${res.mensaje} Se sanearon y cargaron ${res.metricas_saneamiento.filas_procesadas} registros. Pasando al Tablero Analítico...`,
+        { type: 'success', durationMs: 4000 }
+      );
+
+      await setOnboardingStep('completed');
+
+      if (onComplete) {
+        setTimeout(onComplete, 800);
+      }
     } catch (err: unknown) {
       setPipelineStatus('error');
       const errorObj = err as { message?: string };
-      setBanner({
-        type: 'error',
-        message: errorObj.message || 'Error durante la sincronización.',
-      });
+      showToast(errorObj.message || 'Error durante la sincronización.', { type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -139,10 +146,7 @@ export const IngestionAuditScreen: React.FC = () => {
 
   const handleProcessFile = async () => {
     if (!isIngestionAllowed) {
-      setBanner({
-        type: 'forbidden',
-        message: 'Acceso Denegado (HTTP 403): Ingesta de archivos no autorizada.',
-      });
+      showToast('Acceso Denegado (HTTP 403): Ingesta de archivos no autorizada.', { type: 'error' });
       return;
     }
 
@@ -160,17 +164,20 @@ export const IngestionAuditScreen: React.FC = () => {
 
       setMetrics(res.metricas_saneamiento);
       setPipelineStatus(res.status);
-      setBanner({
-        type: 'success',
-        message: `${res.mensaje} (${res.metricas_saneamiento.filas_procesadas} registros procesados).`,
-      });
+      showToast(
+        `${res.mensaje} (${res.metricas_saneamiento.filas_procesadas} registros procesados). Pasando al Tablero Analítico...`,
+        { type: 'success', durationMs: 4000 }
+      );
+
+      await setOnboardingStep('completed');
+
+      if (onComplete) {
+        setTimeout(onComplete, 800);
+      }
     } catch (err: unknown) {
       setPipelineStatus('error');
       const errorObj = err as { message?: string };
-      setBanner({
-        type: 'error',
-        message: errorObj.message || 'Error al procesar el archivo local.',
-      });
+      showToast(errorObj.message || 'Error al procesar el archivo local.', { type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -182,6 +189,14 @@ export const IngestionAuditScreen: React.FC = () => {
       contentContainerStyle={styles.contentContainer}
     >
       <View style={styles.header}>
+        {onboardingStep !== 'completed' && (
+          <View style={{ marginBottom: 8 }}>
+            <MetricBadge
+              type="pareto_a"
+              label="PASO 2 DE 2: INGESTA Y SANEAMIENTO DE DATOS"
+            />
+          </View>
+        )}
         <Text style={[styles.title, { color: colors.textPrimary }]}>
           Monitor de Ingesta & Auditoría de Datos
         </Text>

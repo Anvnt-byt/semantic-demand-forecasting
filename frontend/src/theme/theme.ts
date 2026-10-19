@@ -87,13 +87,13 @@ export const lightTheme: ThemeColors = {
 export const typography = {
   fontFamilyMono: 'monospace',
   fontSize: {
-    xs: 11,
-    sm: 13,
-    base: 15,
-    lg: 18,
-    xl: 22,
-    xxl: 28,
-    metric: 34,
+    xs: 14,
+    sm: 16,
+    base: 18,
+    lg: 22,
+    xl: 26,
+    xxl: 32,
+    metric: 40,
   },
   fontWeight: {
     regular: '400' as const,

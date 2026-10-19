@@ -10,8 +10,18 @@ import { TactileButton } from './TactileButton';
 
 export const AppHeader: React.FC = () => {
   const { colors, mode, toggleTheme } = useTheme();
-  const { backendHost, backendPort, useMocks, isOnline, lastPingMs, setBackendConfig, setUseMocks } =
-    useConfigStore();
+  const {
+    backendHost,
+    backendPort,
+    useMocks,
+    isOnline,
+    lastPingMs,
+    onboardingStep,
+    activeSection,
+    setActiveSection,
+    setBackendConfig,
+    setUseMocks,
+  } = useConfigStore();
   const { plan, isVerified, daysRemaining } = useLicenseStore();
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -31,6 +41,11 @@ export const AppHeader: React.FC = () => {
   const handleSaveConfig = async () => {
     const portNum = parseInt(tempPort, 10) || 8000;
     await setBackendConfig(tempHost, portNum);
+    setModalVisible(false);
+  };
+
+  const navigateToSection = (section: 'dashboard' | 'license' | 'ingestion') => {
+    setActiveSection(section);
     setModalVisible(false);
   };
 
@@ -102,7 +117,27 @@ export const AppHeader: React.FC = () => {
               ]}
             />
             <Text style={[styles.networkText, { color: colors.textPrimary }]}>
-              {useMocks ? 'SIMULACIÓN (MOCK)' : isOnline ? `LAN ${lastPingMs}ms` : 'DESCONECTADO'}
+              {useMocks ? 'SIMULACIÓN' : isOnline ? `LAN ${lastPingMs}ms` : 'DESCONECTADO'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Configuration Button */}
+          <TouchableOpacity
+            onPress={() => setModalVisible(true)}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Abrir panel de configuración"
+            style={[
+              styles.themeButton,
+              {
+                backgroundColor: colors.surfaceSecondary,
+                borderColor: colors.surfaceBorder,
+                marginRight: 8,
+              },
+            ]}
+          >
+            <Text style={[styles.themeButtonText, { color: colors.accentPrimary }]}>
+              ⚙️ CONFIG
             </Text>
           </TouchableOpacity>
 
@@ -127,6 +162,21 @@ export const AppHeader: React.FC = () => {
         </View>
       </View>
 
+      {/* Return to Dashboard Banner if navigating outside main after onboarding */}
+      {onboardingStep === 'completed' && activeSection !== 'dashboard' && (
+        <TouchableOpacity
+          onPress={() => setActiveSection('dashboard')}
+          style={[
+            styles.returnBanner,
+            { backgroundColor: colors.accentPrimary, borderColor: colors.surfaceBorder },
+          ]}
+        >
+          <Text style={styles.returnBannerText}>
+            ← VOLVER AL TABLERO ANALÍTICO PRINCIPAL
+          </Text>
+        </TouchableOpacity>
+      )}
+
       {/* LAN Configuration Modal */}
       <Modal
         visible={modalVisible}
@@ -142,11 +192,37 @@ export const AppHeader: React.FC = () => {
             ]}
           >
             <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-              Configuración de Terminal LAN
+              Configuración & Gestión POS
             </Text>
             <Text style={[styles.modalDescription, { color: colors.textSecondary }]}>
-              Ajuste el Host y Puerto del backend FastAPI local que atiende en su red de terminales.
+              Gestione los módulos del sistema y el Host/Puerto del backend FastAPI local.
             </Text>
+
+            {onboardingStep === 'completed' && (
+              <View style={styles.navSection}>
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>
+                  MÓDULOS DE LA TERMINAL
+                </Text>
+                <TactileButton
+                  title="📊 Tablero Analítico (Principal)"
+                  variant={activeSection === 'dashboard' ? 'primary' : 'outline'}
+                  onPress={() => navigateToSection('dashboard')}
+                  style={{ marginBottom: 8 }}
+                />
+                <TactileButton
+                  title="📥 Monitor de Ingesta & Auditoría"
+                  variant={activeSection === 'ingestion' ? 'primary' : 'outline'}
+                  onPress={() => navigateToSection('ingestion')}
+                  style={{ marginBottom: 8 }}
+                />
+                <TactileButton
+                  title="🔑 Gestión de Licencia & EULA"
+                  variant={activeSection === 'license' ? 'primary' : 'outline'}
+                  onPress={() => navigateToSection('license')}
+                  style={{ marginBottom: 14 }}
+                />
+              </View>
+            )}
 
             <View style={styles.inputGroup}>
               <Text style={[styles.inputLabel, { color: colors.textMuted }]}>HOST / IP LOCAL</Text>
@@ -378,5 +454,25 @@ const styles = StyleSheet.create({
   modalButtonsRow: {
     flexDirection: 'row',
     marginTop: 8,
+  },
+  returnBanner: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderBottomWidth: 1,
+  },
+  returnBannerText: {
+    color: '#FFFFFF',
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.bold,
+    letterSpacing: 0.8,
+    fontFamily: typography.fontFamilyMono,
+  },
+  navSection: {
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    paddingBottom: 12,
   },
 });

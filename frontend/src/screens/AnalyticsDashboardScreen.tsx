@@ -8,6 +8,7 @@ import {
   Alert,
 } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
+import { useToast } from '../context/ToastContext';
 import { useLicenseStore } from '../store/useLicenseStore';
 import {
   getKpisApi,
@@ -38,6 +39,7 @@ import { SellersTable } from '../components/tables/SellersTable';
 
 export const AnalyticsDashboardScreen: React.FC = () => {
   const { colors } = useTheme();
+  const { showToast } = useToast();
   const { hasModule, plan } = useLicenseStore();
 
   const isPredictiveAllowed = hasModule('predictive_demand');
@@ -116,9 +118,8 @@ export const AnalyticsDashboardScreen: React.FC = () => {
 
   const handleRunPrediction = async () => {
     if (!isPredictiveAllowed) {
-      setBanner({
-        type: 'forbidden',
-        message: 'Acceso Denegado (HTTP 403): El Motor Predictivo LightGBM requiere una licencia Plan Pro.',
+      showToast('Acceso Denegado (HTTP 403): El Motor Predictivo LightGBM requiere una licencia Plan Pro.', {
+        type: 'error',
       });
       return;
     }
@@ -131,16 +132,14 @@ export const AnalyticsDashboardScreen: React.FC = () => {
         force_retrain: forceRetrain,
       });
       setForecast(res);
-      setBanner({
-        type: 'success',
-        message: `Proyección a ${horizonDays} días calculada con éxito (${res.nivel_confianza === 'alta_ml' ? 'LightGBM ML' : 'Heurística EMA'}).`,
-      });
+      showToast(
+        `Proyección a ${horizonDays} días calculada (${res.nivel_confianza === 'alta_ml' ? 'LightGBM ML' : 'Heurística EMA'}).`,
+        { type: 'success' }
+      );
     } catch (err: unknown) {
       const errorObj = err as { message?: string; isRateLimited?: boolean; retryAfterSeconds?: number };
-      setBanner({
-        type: errorObj.isRateLimited ? 'rate_limit' : 'error',
-        message: errorObj.message || 'Error al ejecutar motor predictivo.',
-        retryCountdown: errorObj.retryAfterSeconds,
+      showToast(errorObj.message || 'Error al ejecutar motor predictivo.', {
+        type: errorObj.isRateLimited ? 'warning' : 'error',
       });
     } finally {
       setPredictLoading(false);
@@ -149,9 +148,8 @@ export const AnalyticsDashboardScreen: React.FC = () => {
 
   const handleExportExcel = async () => {
     if (!isExportExcelAllowed) {
-      setBanner({
-        type: 'forbidden',
-        message: 'Acceso Denegado (HTTP 403): La exportación PowerBI / Excel requiere Plan Pro.',
+      showToast('Acceso Denegado (HTTP 403): La exportación PowerBI / Excel requiere Plan Pro.', {
+        type: 'error',
       });
       return;
     }
@@ -159,10 +157,10 @@ export const AnalyticsDashboardScreen: React.FC = () => {
     setExportLoading('excel');
     try {
       const res = await exportExcelApi();
-      Alert.alert('Exportación Exitosa', `Archivo binario generado en memoria: ${res.filename}`);
+      showToast(`Excel descargado en memoria: ${res.filename}`, { type: 'success', durationMs: 4000 });
     } catch (err: unknown) {
       const errorObj = err as { message?: string };
-      setBanner({ type: 'error', message: errorObj.message || 'Error al exportar a Excel.' });
+      showToast(errorObj.message || 'Error al exportar a Excel.', { type: 'error' });
     } finally {
       setExportLoading(null);
     }
@@ -170,9 +168,8 @@ export const AnalyticsDashboardScreen: React.FC = () => {
 
   const handleExportPdf = async () => {
     if (!isExportPdfAllowed) {
-      setBanner({
-        type: 'forbidden',
-        message: 'Acceso Denegado (HTTP 403): La exportación de informe PDF requiere Plan Pro.',
+      showToast('Acceso Denegado (HTTP 403): La exportación de informe PDF requiere Plan Pro.', {
+        type: 'error',
       });
       return;
     }
@@ -180,10 +177,10 @@ export const AnalyticsDashboardScreen: React.FC = () => {
     setExportLoading('pdf');
     try {
       const res = await exportPdfApi();
-      Alert.alert('Exportación Exitosa', `Informe ejecutivo generado en memoria: ${res.filename}`);
+      showToast(`Informe PDF descargado en memoria: ${res.filename}`, { type: 'success', durationMs: 4000 });
     } catch (err: unknown) {
       const errorObj = err as { message?: string };
-      setBanner({ type: 'error', message: errorObj.message || 'Error al exportar a PDF.' });
+      showToast(errorObj.message || 'Error al exportar a PDF.', { type: 'error' });
     } finally {
       setExportLoading(null);
     }

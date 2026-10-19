@@ -9,6 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
+import { useToast } from '../context/ToastContext';
 import { useLicenseStore } from '../store/useLicenseStore';
 import { useConfigStore } from '../store/useConfigStore';
 import { verifyLicenseApi } from '../api/endpoints/licenseApi';
@@ -25,6 +26,7 @@ interface SetupLicenseScreenProps {
 
 export const SetupLicenseScreen: React.FC<SetupLicenseScreenProps> = ({ onSuccess }) => {
   const { colors } = useTheme();
+  const { showToast } = useToast();
   const {
     isVerified,
     licenseKey: storedKey,
@@ -39,7 +41,7 @@ export const SetupLicenseScreen: React.FC<SetupLicenseScreenProps> = ({ onSucces
     resetLicense,
   } = useLicenseStore();
 
-  const { backendHost, backendPort, setBackendConfig } = useConfigStore();
+  const { backendHost, backendPort, setBackendConfig, onboardingStep, setOnboardingStep } = useConfigStore();
 
   const [inputKey, setInputKey] = useState(storedKey || 'TC-PRO-DEMO-2027');
   const [inputPosId, setInputPosId] = useState(posIdentifier || 'POS-TERM-01');
@@ -54,9 +56,8 @@ export const SetupLicenseScreen: React.FC<SetupLicenseScreenProps> = ({ onSucces
 
   const applyDemoKey = (key: string) => {
     setInputKey(key);
-    setBanner({
-      type: 'success',
-      message: `Clave demo cargada: ${key}. Presione "Verificar y Activar Licencia" para registrar.`,
+    showToast(`Clave demo cargada: ${key}. Presione "Verificar y Activar Licencia" para registrar.`, {
+      type: 'info',
     });
   };
 
@@ -66,14 +67,10 @@ export const SetupLicenseScreen: React.FC<SetupLicenseScreenProps> = ({ onSucces
     await setBackendConfig(host, p);
     const res = await pingBackend();
     if (res.ok) {
-      setBanner({
-        type: 'success',
-        message: `Conexión LAN exitosa con FastAPI (${res.latencyMs}ms)`,
-      });
+      showToast(`Conexión LAN exitosa con FastAPI (${res.latencyMs}ms)`, { type: 'success' });
     } else {
-      setBanner({
-        type: 'network',
-        message: `No se obtuvo respuesta en ${host}:${port}. Verifique el servicio local o mantenga activo el modo simulación (Mocks).`,
+      showToast(`Sin respuesta en ${host}:${port}. Verifique el servicio o use modo Simulación (Mocks).`, {
+        type: 'warning',
       });
     }
     setPinging(false);
@@ -81,15 +78,14 @@ export const SetupLicenseScreen: React.FC<SetupLicenseScreenProps> = ({ onSucces
 
   const handleVerify = async () => {
     if (!localEula) {
-      Alert.alert(
-        'Aceptación Legal Obligatoria',
-        'Debe aceptar el EULA y la política de procesamiento 100% local y consultas en solo lectura antes de continuar.'
-      );
+      showToast('Debe aceptar el EULA y la política de solo lectura antes de continuar.', {
+        type: 'error',
+      });
       return;
     }
 
     if (!inputKey.trim()) {
-      Alert.alert('Clave Requerida', 'Por favor ingrese una clave de licencia válida.');
+      showToast('Por favor ingrese una clave de licencia válida.', { type: 'error' });
       return;
     }
 
@@ -117,26 +113,23 @@ export const SetupLicenseScreen: React.FC<SetupLicenseScreenProps> = ({ onSucces
           posName: inputPosName.trim(),
         });
 
-        setBanner({
-          type: 'success',
-          message: `Licencia ${result.plan.toUpperCase()} verificada con éxito (${result.days_remaining} días restantes, ${result.allowed_modules.length} módulos habilitados).`,
-        });
+        showToast(
+          `Licencia ${result.plan.toUpperCase()} verificada con éxito. Avanzando a Ingesta...`,
+          { type: 'success', durationMs: 4000 }
+        );
+
+        await setOnboardingStep('ingestion');
 
         if (onSuccess) {
-          setTimeout(onSuccess, 1000);
+          setTimeout(onSuccess, 800);
         }
       } else {
-        setBanner({
-          type: 'forbidden',
-          message: result.message || 'Clave de licencia inválida o expirada.',
-        });
+        showToast(result.message || 'Clave de licencia inválida o expirada.', { type: 'error' });
       }
     } catch (err: unknown) {
       const errorObj = err as { message?: string; isRateLimited?: boolean; retryAfterSeconds?: number };
-      setBanner({
-        type: errorObj.isRateLimited ? 'rate_limit' : 'error',
-        message: errorObj.message || 'Error al verificar la licencia.',
-        retryCountdown: errorObj.retryAfterSeconds,
+      showToast(errorObj.message || 'Error al verificar la licencia.', {
+        type: errorObj.isRateLimited ? 'warning' : 'error',
       });
     } finally {
       setLoading(false);
@@ -149,6 +142,14 @@ export const SetupLicenseScreen: React.FC<SetupLicenseScreenProps> = ({ onSucces
       contentContainerStyle={styles.contentContainer}
     >
       <View style={styles.header}>
+        {onboardingStep !== 'completed' && (
+          <View style={{ marginBottom: 8 }}>
+            <MetricBadge
+              type="plan_pro"
+              label="PASO 1 DE 2: VALIDACIÓN LEGAL Y LICENCIA POS"
+            />
+          </View>
+        )}
         <Text style={[styles.title, { color: colors.textPrimary }]}>
           Activación de Terminal POS & EULA
         </Text>

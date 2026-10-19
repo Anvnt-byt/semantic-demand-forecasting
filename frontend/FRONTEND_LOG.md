@@ -202,3 +202,48 @@ export interface PredictDemandResponse {
 - Alternancia de tema Claro / Oscuro verificada en todos los componentes.
 - Restricción de exportaciones y demanda predictiva probada con licencias Plan Starter (HTTP 403 preventivo).
 - Validación de interactividad táctil en gráfica P10-P90 con tooltip de fecha y cantidades estimadas.
+---
+
+## Sección 6: Escala Tipográfica WCAG, Sistema Global de Toasts y Flujo Secuencial (Wizard a Dashboard Principal)
+**Fecha:** 2026-10-18
+
+### 1. Archivos Creados / Modificados
+- `src/theme/theme.ts`: Incremento del 25%-30% en todos los tokens de escala tipográfica (`xs: 14`, `sm: 16`, `base: 18`, `lg: 22`, `xl: 26`, `xxl: 32`, `metric: 40`).
+- `src/context/ToastContext.tsx`: Contexto y componente de notificaciones flotantes animadas con auto-hide de 3.5 segundos.
+- `src/store/useConfigStore.ts`: Incorporación de estados persistentes `onboardingStep` (`'license'` | `'ingestion'` | `'completed'`) y `activeSection` (`'dashboard'` | `'license'` | `'ingestion'`).
+- `src/screens/SetupLicenseScreen.tsx`: Integración de feedback con `useToast`, indicador visual del Paso 1 y avance automático al Paso 2 al validar.
+- `src/screens/IngestionAuditScreen.tsx`: Indicador del Paso 2, notificaciones toast en sincronización de BD y carga de archivos, y avance automático al Tablero Analítico.
+- `src/screens/AnalyticsDashboardScreen.tsx`: Reemplazo de diálogos invasivos por toasts para exportaciones y predicción.
+- `src/components/common/AppHeader.tsx`: Botón `⚙️ CONFIG`, menú modal de navegación entre módulos/red LAN, y banner de retorno rápido al Tablero Analítico.
+- `src/navigation/RootNavigator.tsx`: Reestructuración con guard de pasos secuenciales y establecimiento del Tablero Analítico como pantalla principal permanente.
+- `App.tsx`: Envoltura global con `ToastProvider`.
+
+### 2. Propósito Arquitectónico
+- Flujo guiado estricto (Guard Pattern): previene acceso a ingesta o analítica sin licencia activa y EULA aceptado; una vez completada la ingesta inicial, el Tablero Analítico asume el rol de pantalla principal permanente.
+- Accesibilidad ergonómica: el incremento tipográfico garantiza lectura clara en pantallas táctiles de POS a distancia de mostrador y monitores de analistas.
+- Notificaciones no invasivas: desacoplamiento de alertas mediante un bus de toasts temporales que liberan la vista sin requerir confirmaciones manuales constantes.
+
+### 3. Interfaces TypeScript y Contratos
+```typescript
+export type OnboardingStep = 'license' | 'ingestion' | 'completed';
+export type ActiveSection = 'dashboard' | 'license' | 'ingestion';
+
+export interface ToastOptions {
+  type?: 'success' | 'error' | 'warning' | 'info';
+  durationMs?: number;
+}
+
+export interface ToastContextType {
+  showToast: (message: string, options?: ToastOptions) => void;
+  hideToast: () => void;
+}
+```
+
+### 4. Casos de Prueba / Verificación
+- Verificación de tipos TypeScript (`npx tsc --noEmit`): 0 errores.
+- Flujo secuencial verificado:
+  1. Inicio bloqueado en Paso 1 (Licencia y EULA).
+  2. Al verificar clave demo `TC-PRO-DEMO-2027` y aceptar EULA $\rightarrow$ Toast de confirmación y salto inmediato a Paso 2 (Ingesta).
+  3. Al completar carga de archivo o conexión de BD $\rightarrow$ Toast de confirmación y transición definitiva a Pantalla 3 (Tablero Analítico).
+  4. Apertura del panel `⚙️ CONFIG` $\rightarrow$ Acceso a Licencia e Ingesta con banner visible de retorno al Tablero.
+- Auto-ocultado de toasts validado tras 3.5 segundos con desvanecimiento animado.
