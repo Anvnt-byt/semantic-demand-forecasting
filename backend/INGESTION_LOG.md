@@ -74,3 +74,41 @@ Eliminar de raíz la latencia, costo computacional y dependencias de modelos ext
   - `test_excel_file_parser`: Generación y lectura de libro Excel `.xlsx` sintético multi-fila y validación de tipos.
 - Resultado: 6 pruebas ejecutadas, 6 superadas (100% éxito).
 
+---
+
+## 3. Pipeline de Limpieza, Saneamiento de Tipos, Detección de Duplicados y Auditoría (2026-10-18)
+
+### Archivos creados/modificados:
+- `backend/ingestion/cleaning_pipeline.py`
+- `backend/ingestion/auditor.py`
+- `backend/ingestion/__init__.py`
+- `backend/tests/test_cleaning_and_audit.py`
+- `backend/INGESTION_LOG.md`
+
+### Propósito arquitectónico:
+Garantizar la pureza e integridad de los datos previo a su almacenamiento e inferencia de series de tiempo, filtrando anomalías estructurales y duplicados en memoria mediante operaciones vectorizadas y generando trazabilidad auditable sin overhead de I/O.
+
+### Funcionalidades y Reglas de Negocio:
+- **Detección de duplicados, saneamiento de tipos y métricas de auditoría generadas:**
+  - `parse_flexible_datetime`: Decodificación resiliente de estampas temporales en múltiples formatos (`ISO 8601`, `YYYY-MM-DD`, `DD/MM/YYYY`, timestamps Epoch en segundos y milisegundos).
+  - `parse_numeric`: Sanitización de divisas, eliminación de símbolos monetarios (`$`, `€`, `MXN`), remoción de espacios y detección automática de separadores decimales (coma vs. punto).
+  - Validación de campos mandatorios:
+    - `ventas`: Obligatoriedad de `sku`, `fecha` válida y `cantidad` numérica. Rechazo de precios unitarios negativos.
+    - `inventario`: Obligatoriedad de `sku` y `stock_actual` numérico; conservación del `lead_time_dias` para cálculo de inventario de seguridad.
+  - Detección de duplicados:
+    - En ventas: Seguimiento de claves compuestas `(id_venta, sku, fecha)`. Los duplicados son excluidos de la inserción y contabilizados en las métricas de auditoría.
+    - En inventario: Seguimiento de clave primaria única `sku`, evitando colisiones.
+  - Persistencia Atómica y Auditoría (`IngestionAuditor`):
+    - Inserción masiva de lotes en tablas estándar `ventas` e `inventario`, con propagación relacional a `lineas_venta` y catálogo de `vendedores`.
+    - Registro en `auditoria_ingesta` con identificación única `batch_id` (UUIDv4), conteo de filas recibidas, válidas, descartadas, duplicados, duración de proceso en milisegundos y muestra serializada en JSON de las primeras 50 excepciones para diagnóstico sin saturación de memoria.
+
+### Pruebas y Validación:
+- Suite de pruebas unitarias (`tests/test_cleaning_and_audit.py`):
+  - `test_parse_flexible_datetime`: Conversión exacta de fechas en formato ISO, barra y delimitador tradicional.
+  - `test_parse_numeric`: Conversión de cadenas con formato de moneda internacional y delimitadores mixtos.
+  - `test_cleaning_pipeline_ventas_validation_and_deduplication`: Detección sintética de registros con fechas inválidas, falta de SKU, cantidades corruptas y duplicados exactos; verificación de las métricas del `AuditReport`.
+  - `test_cleaning_pipeline_inventario_lead_time`: Validación de campos de inventario y preservación de `lead_time_dias` sintético.
+  - `test_auditor_persistence`: Comprobación de inserción en base de datos SQLite en memoria y consulta de reporte por `batch_id`.
+- Resultado: 5 pruebas ejecutadas, 5 superadas (100% éxito).
+
+
