@@ -1,0 +1,302 @@
+import { LicenseVerifyResponse } from '../types/license.types';
+import { IngestionStatusResponse } from '../types/ingestion.types';
+import {
+  KpiMetrics,
+  TemporalComparisonResponse,
+  InventoryItemPareto,
+  SellerPerformance,
+  PredictDemandResponse,
+} from '../types/analytics.types';
+import { IngestedDataRow } from '../types/ingestion.types';
+
+export const MOCK_LICENSE_PRO: LicenseVerifyResponse = {
+  valid: true,
+  license_key: 'TC-PRO-DEMO-2027',
+  plan: 'pro',
+  days_remaining: 365,
+  organization: 'Retail Pro Solutions S.A.',
+  allowed_modules: [
+    'pos_ingestion',
+    'audit_pipeline',
+    'predictive_demand',
+    'pareto_abc',
+    'sellers_performance',
+    'temporal_comparison',
+    'export_excel',
+    'export_pdf',
+  ],
+  message: 'Licencia Pro verificada correctamente (8 módulos activos).',
+};
+
+export const MOCK_LICENSE_STARTER: LicenseVerifyResponse = {
+  valid: true,
+  license_key: 'TC-STARTER-DEMO-2027',
+  plan: 'starter',
+  days_remaining: 90,
+  organization: 'Comercializadora Demo',
+  allowed_modules: [
+    'pos_ingestion',
+    'audit_pipeline',
+    'pareto_abc',
+    'temporal_comparison',
+  ],
+  message: 'Licencia Starter verificada (4 módulos activos). Demanda predictiva y exportaciones requieren Plan Pro.',
+};
+
+export const MOCK_INGESTION_STATUS: IngestionStatusResponse = {
+  status: 'completado',
+  origen: 'archivo_local',
+  fecha_ejecucion: new Date().toISOString(),
+  mensaje: 'Ingesta y saneamiento ejecutados con éxito. 0 anomalías críticas.',
+  metricas_saneamiento: {
+    filas_procesadas: 14820,
+    registros_descartados: 42,
+    duplicados_eliminados: 88,
+    nulos_imputados: 114,
+    tasa_calidad_pct: 99.12,
+    tiempo_procesamiento_ms: 1240,
+  },
+};
+
+export const MOCK_KPIS: KpiMetrics = {
+  fecha_corte: new Date().toISOString().split('T')[0],
+  ventas_mes: 489500.5,
+  total_transacciones: 3412,
+  ticket_promedio: 143.46,
+  crecimiento_diario_pct: 4.8,
+  crecimiento_mensual_pct: 12.3,
+};
+
+export const MOCK_TEMPORAL_COMPARISON: Record<string, TemporalComparisonResponse> = {
+  dia: {
+    granularidad: 'dia',
+    crecimiento_periodo_pct: 6.4,
+    total_actual: 18450.0,
+    total_anterior: 17340.0,
+    puntos: [
+      { label: '08:00', actual: 420, anterior: 380 },
+      { label: '10:00', actual: 1250, anterior: 980 },
+      { label: '12:00', actual: 3100, anterior: 2900 },
+      { label: '14:00', actual: 2850, anterior: 3100 },
+      { label: '16:00', actual: 3400, anterior: 2950 },
+      { label: '18:00', actual: 4200, anterior: 3800 },
+      { label: '20:00', actual: 3230, anterior: 3230 },
+    ],
+  },
+  semana: {
+    granularidad: 'semana',
+    crecimiento_periodo_pct: 8.9,
+    total_actual: 112500.0,
+    total_anterior: 103300.0,
+    puntos: [
+      { label: 'Lun', actual: 14200, anterior: 13100 },
+      { label: 'Mar', actual: 15100, anterior: 14200 },
+      { label: 'Mie', actual: 16400, anterior: 15300 },
+      { label: 'Jue', actual: 15800, anterior: 14900 },
+      { label: 'Vie', actual: 19500, anterior: 17800 },
+      { label: 'Sab', actual: 21200, anterior: 19400 },
+      { label: 'Dom', actual: 10300, anterior: 8600 },
+    ],
+  },
+  mes: {
+    granularidad: 'mes',
+    crecimiento_periodo_pct: 12.3,
+    total_actual: 489500.5,
+    total_anterior: 435800.0,
+    puntos: [
+      { label: 'Sem 1', actual: 112000, anterior: 101000 },
+      { label: 'Sem 2', actual: 118500, anterior: 106000 },
+      { label: 'Sem 3', actual: 124000, anterior: 112000 },
+      { label: 'Sem 4', actual: 135000, anterior: 116800 },
+    ],
+  },
+  ano: {
+    granularidad: 'ano',
+    crecimiento_periodo_pct: 18.5,
+    total_actual: 5890000.0,
+    total_anterior: 4970000.0,
+    puntos: [
+      { label: 'Q1', actual: 1350000, anterior: 1180000 },
+      { label: 'Q2', actual: 1480000, anterior: 1240000 },
+      { label: 'Q3', actual: 1420000, anterior: 1200000 },
+      { label: 'Q4', actual: 1640000, anterior: 1350000 },
+    ],
+  },
+};
+
+export const MOCK_PARETO_INVENTORY: InventoryItemPareto[] = [
+  {
+    sku: 'SKU-BEV-001',
+    nombre: 'Café Espresso Gourmet 1kg',
+    clasificacion_abc: 'A',
+    pct_contribucion: 18.4,
+    pct_acumulado: 18.4,
+    stock_actual: 8,
+    stock_minimo: 15,
+    alerta_reorden: true,
+    dias_sin_venta: 0,
+    es_stock_estancado: false,
+  },
+  {
+    sku: 'SKU-BEV-002',
+    nombre: 'Bebida Energética Citrus 500ml',
+    clasificacion_abc: 'A',
+    pct_contribucion: 14.1,
+    pct_acumulado: 32.5,
+    stock_actual: 64,
+    stock_minimo: 20,
+    alerta_reorden: false,
+    dias_sin_venta: 1,
+    es_stock_estancado: false,
+  },
+  {
+    sku: 'SKU-SNK-010',
+    nombre: 'Galletas Artesanales Choco-Avena',
+    clasificacion_abc: 'A',
+    pct_contribucion: 11.2,
+    pct_acumulado: 43.7,
+    stock_actual: 4,
+    stock_minimo: 12,
+    alerta_reorden: true,
+    dias_sin_venta: 0,
+    es_stock_estancado: false,
+  },
+  {
+    sku: 'SKU-DAI-044',
+    nombre: 'Queso Gouda Madurado 500g',
+    clasificacion_abc: 'B',
+    pct_contribucion: 7.8,
+    pct_acumulado: 51.5,
+    stock_actual: 22,
+    stock_minimo: 10,
+    alerta_reorden: false,
+    dias_sin_venta: 2,
+    es_stock_estancado: false,
+  },
+  {
+    sku: 'SKU-CAN-089',
+    nombre: 'Atún en Aceite de Oliva 180g',
+    clasificacion_abc: 'B',
+    pct_contribucion: 6.2,
+    pct_acumulado: 57.7,
+    stock_actual: 12,
+    stock_minimo: 15,
+    alerta_reorden: true,
+    dias_sin_venta: 3,
+    es_stock_estancado: false,
+  },
+  {
+    sku: 'SKU-CLF-102',
+    nombre: 'Licor de Hierbas Premium 750ml',
+    clasificacion_abc: 'C',
+    pct_contribucion: 1.1,
+    pct_acumulado: 88.2,
+    stock_actual: 45,
+    stock_minimo: 5,
+    alerta_reorden: false,
+    dias_sin_venta: 48,
+    es_stock_estancado: true,
+  },
+  {
+    sku: 'SKU-ACC-304',
+    nombre: 'Bolsa Ecológica Reutilizable XL',
+    clasificacion_abc: 'C',
+    pct_contribucion: 0.4,
+    pct_acumulado: 96.1,
+    stock_actual: 110,
+    stock_minimo: 10,
+    alerta_reorden: false,
+    dias_sin_venta: 32,
+    es_stock_estancado: true,
+  },
+];
+
+export const MOCK_SELLERS: SellerPerformance[] = [
+  {
+    vendedor_id: 'VEND-01',
+    nombre: 'Laura Morales',
+    pct_aporte_tienda: 34.2,
+    tickets_cerrados: 1168,
+    ticket_promedio: 143.35,
+    posicion: 1,
+  },
+  {
+    vendedor_id: 'VEND-02',
+    nombre: 'Carlos Mendoza',
+    pct_aporte_tienda: 28.6,
+    tickets_cerrados: 975,
+    ticket_promedio: 143.68,
+    posicion: 2,
+  },
+  {
+    vendedor_id: 'VEND-03',
+    nombre: 'Sofía Valenzuela',
+    pct_aporte_tienda: 21.4,
+    tickets_cerrados: 730,
+    ticket_promedio: 143.52,
+    posicion: 3,
+  },
+  {
+    vendedor_id: 'VEND-04',
+    nombre: 'Mateo Rivas',
+    pct_aporte_tienda: 15.8,
+    tickets_cerrados: 539,
+    ticket_promedio: 143.41,
+    posicion: 4,
+  },
+];
+
+export const MOCK_PREDICT_DEMAND: PredictDemandResponse = {
+  nivel_confianza: 'alta_ml',
+  horizonte_dias: 14,
+  generado_el: new Date().toISOString(),
+  disclaimer:
+    'AVISO LEGAL / CONFIDENCIALIDAD: Pronóstico probabilístico generado localmente mediante LightGBM. Las estimaciones son orientativas y sujetas a estacionalidad exógena. No constituye asesoramiento financiero ni garantía comercial contractual.',
+  metricas_diagnosticas: {
+    wape: 6.42,
+    rmse: 14.85,
+    cv: 0.18,
+    stock_seguridad: 42,
+    punto_reorden: 85,
+    lead_time_aplicado: 4,
+  },
+  serie_temporal: [
+    { fecha: '2026-10-19', prediccion: 152, limite_inferior_p10: 134, limite_superior_p90: 172 },
+    { fecha: '2026-10-20', prediccion: 148, limite_inferior_p10: 129, limite_superior_p90: 169 },
+    { fecha: '2026-10-21', prediccion: 165, limite_inferior_p10: 145, limite_superior_p90: 188 },
+    { fecha: '2026-10-22', prediccion: 171, limite_inferior_p10: 150, limite_superior_p90: 195 },
+    { fecha: '2026-10-23', prediccion: 198, limite_inferior_p10: 172, limite_superior_p90: 226 },
+    { fecha: '2026-10-24', prediccion: 224, limite_inferior_p10: 194, limite_superior_p90: 256 },
+    { fecha: '2026-10-25', prediccion: 135, limite_inferior_p10: 114, limite_superior_p90: 158 },
+    { fecha: '2026-10-26', prediccion: 155, limite_inferior_p10: 132, limite_superior_p90: 180 },
+    { fecha: '2026-10-27', prediccion: 160, limite_inferior_p10: 136, limite_superior_p90: 186 },
+    { fecha: '2026-10-28', prediccion: 168, limite_inferior_p10: 142, limite_superior_p90: 197 },
+    { fecha: '2026-10-29', prediccion: 175, limite_inferior_p10: 148, limite_superior_p90: 205 },
+    { fecha: '2026-10-30', prediccion: 205, limite_inferior_p10: 175, limite_superior_p90: 238 },
+    { fecha: '2026-10-31', prediccion: 230, limite_inferior_p10: 198, limite_superior_p90: 265 },
+    { fecha: '2026-11-01', prediccion: 140, limite_inferior_p10: 118, limite_superior_p90: 164 },
+  ],
+};
+
+export const MOCK_INGESTED_ROWS: IngestedDataRow[] = [
+  { id: 'TX-0001', fecha: '2026-10-15', sku: 'SKU-BEV-001', nombre_producto: 'Café Espresso Gourmet 1kg', cantidad: 3, precio_unitario: 289.90, total: 869.70, vendedor: 'Laura Morales', metodo_pago: 'tarjeta' },
+  { id: 'TX-0002', fecha: '2026-10-15', sku: 'SKU-BEV-002', nombre_producto: 'Bebida Energética Citrus 500ml', cantidad: 12, precio_unitario: 35.50, total: 426.00, vendedor: 'Carlos Mendoza', metodo_pago: 'efectivo' },
+  { id: 'TX-0003', fecha: '2026-10-15', sku: 'SKU-SNK-010', nombre_producto: 'Galletas Artesanales Choco-Avena', cantidad: 5, precio_unitario: 62.00, total: 310.00, vendedor: 'Sofía Valenzuela', metodo_pago: 'tarjeta' },
+  { id: 'TX-0004', fecha: '2026-10-15', sku: 'SKU-DAI-044', nombre_producto: 'Queso Gouda Madurado 500g', cantidad: 2, precio_unitario: 189.50, total: 379.00, vendedor: 'Mateo Rivas', metodo_pago: 'transferencia' },
+  { id: 'TX-0005', fecha: '2026-10-16', sku: 'SKU-CAN-089', nombre_producto: 'Atún en Aceite de Oliva 180g', cantidad: 8, precio_unitario: 45.00, total: 360.00, vendedor: 'Laura Morales', metodo_pago: 'tarjeta' },
+  // Duplicado intencional de TX-0001 (demo sanitización)
+  { id: 'TX-0006', fecha: '2026-10-15', sku: 'SKU-BEV-001', nombre_producto: 'Café Espresso Gourmet 1kg', cantidad: 3, precio_unitario: 289.90, total: 869.70, vendedor: 'Laura Morales', metodo_pago: 'tarjeta' },
+  { id: 'TX-0007', fecha: '2026-10-16', sku: 'SKU-CLF-102', nombre_producto: 'Licor de Hierbas Premium 750ml', cantidad: 1, precio_unitario: 520.00, total: 520.00, vendedor: 'Carlos Mendoza', metodo_pago: 'tarjeta' },
+  // Vendedor vacío (demo imputación de nulos)
+  { id: 'TX-0008', fecha: '2026-10-16', sku: 'SKU-ACC-304', nombre_producto: 'Bolsa Ecológica Reutilizable XL', cantidad: 4, precio_unitario: 15.00, total: 60.00, vendedor: '', metodo_pago: 'efectivo' },
+  { id: 'TX-0009', fecha: '2026-10-17', sku: 'SKU-BEV-001', nombre_producto: 'Café Espresso Gourmet 1kg', cantidad: 2, precio_unitario: 289.90, total: 579.80, vendedor: 'Sofía Valenzuela', metodo_pago: 'efectivo' },
+  // Whitespace intencional (demo trim)
+  { id: 'TX-0010', fecha: '2026-10-17', sku: 'SKU-BEV-002', nombre_producto: '  Bebida Energética Citrus 500ml  ', cantidad: 6, precio_unitario: 35.50, total: 213.00, vendedor: 'Mateo Rivas', metodo_pago: 'tarjeta' },
+  // Duplicado intencional de TX-0005
+  { id: 'TX-0011', fecha: '2026-10-16', sku: 'SKU-CAN-089', nombre_producto: 'Atún en Aceite de Oliva 180g', cantidad: 8, precio_unitario: 45.00, total: 360.00, vendedor: 'Laura Morales', metodo_pago: 'tarjeta' },
+  { id: 'TX-0012', fecha: '2026-10-17', sku: 'SKU-SNK-010', nombre_producto: 'Galletas Artesanales Choco-Avena', cantidad: 10, precio_unitario: 62.00, total: 620.00, vendedor: 'Laura Morales', metodo_pago: 'transferencia' },
+  // Vendedor vacío
+  { id: 'TX-0013', fecha: '2026-10-18', sku: 'SKU-DAI-044', nombre_producto: 'Queso Gouda Madurado 500g', cantidad: 3, precio_unitario: 189.50, total: 568.50, vendedor: '', metodo_pago: 'tarjeta' },
+  { id: 'TX-0014', fecha: '2026-10-18', sku: 'SKU-BEV-001', nombre_producto: 'Café Espresso Gourmet 1kg', cantidad: 5, precio_unitario: 289.90, total: 1449.50, vendedor: 'Carlos Mendoza', metodo_pago: 'efectivo' },
+  { id: 'TX-0015', fecha: '2026-10-18', sku: 'SKU-CLF-102', nombre_producto: 'Licor de Hierbas Premium 750ml', cantidad: 2, precio_unitario: 520.00, total: 1040.00, vendedor: 'Sofía Valenzuela', metodo_pago: 'tarjeta' },
+];
