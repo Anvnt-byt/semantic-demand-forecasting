@@ -30,6 +30,7 @@ export const AppHeader: React.FC = () => {
     setActiveSection,
     setBackendConfig,
     setUseMocks,
+    resetDemoPipeline,
   } = useConfigStore();
   const { plan, isVerified, daysRemaining } = useLicenseStore();
 
@@ -39,10 +40,19 @@ export const AppHeader: React.FC = () => {
   const [pingStatus, setPingStatus] = useState<string | null>(null);
   const [pinging, setPinging] = useState(false);
 
+  const handleResetDemo = async () => {
+    try {
+      await resetDemoPipeline();
+    } catch {
+      //
+    }
+  };
+
   const handleTestConnection = async () => {
     setPinging(true);
     setPingStatus('Probando conexión LAN...');
-    const result = await pingBackend();
+    const portNum = parseInt(tempPort, 10) || 8000;
+    const result = await pingBackend(tempHost, portNum);
     setPingStatus(result.message);
     setPinging(false);
   };
@@ -130,6 +140,28 @@ export const AppHeader: React.FC = () => {
             </Text>
           </TouchableOpacity>
 
+          {/* Persistent Reset Demo Button */}
+          <TouchableOpacity
+            onPress={handleResetDemo}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Reiniciar flujo de demostración"
+            style={[
+              styles.themeButton,
+              {
+                backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                borderColor: 'rgba(239, 68, 68, 0.35)',
+                marginRight: 8,
+                flexDirection: 'row',
+                alignItems: 'center',
+              },
+            ]}
+          >
+            <Text style={[styles.themeButtonText, { color: colors.alertCritical }]}>
+              REINICIAR DEMO
+            </Text>
+          </TouchableOpacity>
+
           {/* Configuration Button */}
           <TouchableOpacity
             onPress={() => setModalVisible(true)}
@@ -201,7 +233,7 @@ export const AppHeader: React.FC = () => {
               { backgroundColor: colors.surface, borderColor: colors.surfaceBorder },
             ]}
           >
-            {/* Modal Header with Close Button ✕ */}
+            {/* Modal Header with Close Button X */}
             <View style={styles.modalHeaderRow}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>

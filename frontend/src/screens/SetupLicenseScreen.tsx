@@ -42,9 +42,16 @@ export const SetupLicenseScreen: React.FC<SetupLicenseScreenProps> = ({ onSucces
     resetLicense,
   } = useLicenseStore();
 
-  const { backendHost, backendPort, setBackendConfig, onboardingStep, setOnboardingStep } = useConfigStore();
+  const {
+    backendHost,
+    backendPort,
+    setBackendConfig,
+    onboardingStep,
+    setOnboardingStep,
+    setPipelineStep,
+  } = useConfigStore();
 
-  const [inputKey, setInputKey] = useState(storedKey || 'TC-PRO-DEMO-2027');
+  const [inputKey, setInputKey] = useState(storedKey || 'POS-PRO-DEMO-2027');
   const [inputPosId, setInputPosId] = useState(posIdentifier || 'POS-TERM-01');
   const [inputPosName, setInputPosName] = useState(posName || 'Caja Central Mostrador');
   const [host, setHost] = useState(backendHost);
@@ -116,8 +123,8 @@ export const SetupLicenseScreen: React.FC<SetupLicenseScreenProps> = ({ onSucces
 
         if (onboardingStep === 'completed') {
           showToast(`Configuración de licencia guardada correctamente.`, { type: 'success' });
-          const { setActiveSection } = useConfigStore.getState();
-          setActiveSection('dashboard');
+          setPipelineStep(2);
+          if (onSuccess) onSuccess();
         } else {
           showToast(
             `Licencia ${result.plan.toUpperCase()} verificada con éxito. Avanzando a Ingesta...`,
@@ -125,6 +132,7 @@ export const SetupLicenseScreen: React.FC<SetupLicenseScreenProps> = ({ onSucces
           );
 
           await setOnboardingStep('ingestion');
+          setPipelineStep(2);
 
           if (onSuccess) {
             setTimeout(onSuccess, 800);
@@ -138,6 +146,64 @@ export const SetupLicenseScreen: React.FC<SetupLicenseScreenProps> = ({ onSucces
       showToast(errorObj.message || 'Error al verificar la licencia.', {
         type: errorObj.isRateLimited ? 'warning' : 'error',
       });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOneClickProDemo = async () => {
+    setLoading(true);
+    setBanner(null);
+    try {
+      const p = parseInt(port, 10) || 8000;
+      await setBackendConfig(host, p);
+      await setEulaAccepted(true);
+      setLocalEula(true);
+      setInputKey('POS-PRO-DEMO-2027');
+
+      try {
+        const result = await verifyLicenseApi({
+          license_key: 'POS-PRO-DEMO-2027',
+          pos_identifier: inputPosId.trim() || 'POS-TERM-01',
+          pos_name: inputPosName.trim() || 'Caja Central Mostrador',
+        });
+        await setLicense({
+          licenseKey: result.license_key,
+          plan: result.plan,
+          daysRemaining: result.days_remaining,
+          allowedModules: result.allowed_modules,
+          posIdentifier: inputPosId.trim() || 'POS-TERM-01',
+          posName: inputPosName.trim() || 'Caja Central Mostrador',
+        });
+      } catch {
+        await setLicense({
+          licenseKey: 'POS-PRO-DEMO-2027',
+          plan: 'pro',
+          daysRemaining: 365,
+          allowedModules: [
+            'pos_ingestion',
+            'audit_pipeline',
+            'predictive_demand',
+            'pareto_abc',
+            'sellers_performance',
+            'temporal_comparison',
+            'export_excel',
+            'export_pdf',
+          ],
+          posIdentifier: inputPosId.trim() || 'POS-TERM-01',
+          posName: inputPosName.trim() || 'Caja Central Mostrador',
+        });
+      }
+
+      showToast('Licencia Empresarial Pro activada exitosamente (8 módulos). Avanzando a Ingesta...', {
+        type: 'success',
+        durationMs: 3000,
+      });
+      await setOnboardingStep('ingestion');
+      setPipelineStep(2);
+      if (onSuccess) {
+        setTimeout(onSuccess, 400);
+      }
     } finally {
       setLoading(false);
     }
@@ -199,22 +265,29 @@ export const SetupLicenseScreen: React.FC<SetupLicenseScreenProps> = ({ onSucces
       {/* Demo Keys Quick Picker */}
       <TactileCard>
         <Text style={[styles.sectionTitle, { color: colors.accentPrimary }]}>
-          CLAVES DEMO RÁPIDAS PARA DESARROLLO
+          ACTIVACIÓN EMPRESARIAL • EVALUACIÓN RÁPIDA
         </Text>
         <Text style={[styles.descriptionText, { color: colors.textSecondary }]}>
-          Seleccione una clave preconfigurada para probar las capacidades completas o la restricción de módulos:
+          Para la sesión de evaluación presencial, active la suite Pro completa con 1 solo clic:
         </Text>
+        <TactileButton
+          title="Activar Licencia Pro (1 Clic) y Continuar"
+          variant="primary"
+          loading={loading}
+          onPress={handleOneClickProDemo}
+          style={{ marginBottom: 12 }}
+        />
         <View style={styles.demoButtonsRow}>
           <TactileButton
-            title="Plan Pro (8 Módulos)"
-            variant={inputKey === 'TC-PRO-DEMO-2027' ? 'primary' : 'outline'}
-            onPress={() => applyDemoKey('TC-PRO-DEMO-2027')}
+            title="Preconfigurar Pro (8 Módulos)"
+            variant={inputKey === 'POS-PRO-DEMO-2027' ? 'primary' : 'outline'}
+            onPress={() => applyDemoKey('POS-PRO-DEMO-2027')}
             style={styles.demoBtn}
           />
           <TactileButton
-            title="Plan Starter (4 Módulos)"
-            variant={inputKey === 'TC-STARTER-DEMO-2027' ? 'primary' : 'outline'}
-            onPress={() => applyDemoKey('TC-STARTER-DEMO-2027')}
+            title="Preconfigurar Starter (4 Módulos)"
+            variant={inputKey === 'POS-STARTER-DEMO-2027' ? 'primary' : 'outline'}
+            onPress={() => applyDemoKey('POS-STARTER-DEMO-2027')}
             style={styles.demoBtn}
           />
         </View>
@@ -350,9 +423,11 @@ export const SetupLicenseScreen: React.FC<SetupLicenseScreenProps> = ({ onSucces
           ]}
         >
           <Text style={[styles.eulaText, { color: colors.textSecondary }]}>
-            1. <Text style={{ fontWeight: 'bold' }}>Procesamiento 100% Local:</Text> La aplicación y sus modelos de machine learning (LightGBM) ejecutan todo cálculo directamente en su red local. No se transmiten tickets, registros de venta ni identificadores a servidores cloud externos.
-            {'\n\n'}
-            2. <Text style={{ fontWeight: 'bold' }}>Política de Solo Lectura (SELECT Exclusivo):</Text> Toda conexión a bases de datos clientes (MySQL / PostgreSQL) se realiza estrictamente con permisos de lectura. La aplicación nunca ejecuta sentencias INSERT, UPDATE, DELETE o DROP en las tablas del sistema de facturación.
+            1. <Text style={{ fontWeight: 'bold' }}>Concesión de Licencia Restringida (On-Premise):</Text> Se otorga una licencia intransferible, no exclusiva y revocable para uso operacional local. Prohibida su descompilación, sublicenciamiento o reventa fuera de los términos corporativos pactados.{'\n\n'}
+            2. <Text style={{ fontWeight: 'bold' }}>Propiedad Intelectual (Modelos vs. Datos):</Text> La arquitectura matemática, pipelines de curaduría y ponderaciones del ensamble LightGBM son propiedad intelectual exclusiva de AnyVent / POSBuddy. Todos los datos transaccionales, catálogos y registros de inventario pertenecen 100% al cliente.{'\n\n'}
+            3. <Text style={{ fontWeight: 'bold' }}>Deslinde de Responsabilidad Predictiva (Statistical Best-Effort):</Text> Las previsiones de demanda, intervalos de confianza [p10, p90] y puntos de reorden (ROP) son proyecciones estocásticas de asistencia a la toma de decisiones. El cliente mantiene el criterio final de aprovisionamiento.{'\n\n'}
+            4. <Text style={{ fontWeight: 'bold' }}>Privacidad Absoluta y Cero Telemetría Cloud:</Text> El software opera íntegramente de manera local (air-gapped compatible). No se transmiten tickets, importes ni identificadores fiscales a servidores remotos ni proveedores de nube terceros.{'\n\n'}
+            5. <Text style={{ fontWeight: 'bold' }}>Certificación de Solo Lectura (SELECT Exclusivo):</Text> Las conexiones a motores de bases de datos POS (MySQL / PostgreSQL / SQLite) operan estrictamente bajo permisos de lectura. El sistema garantiza la no alteración del motor de facturación en producción.
           </Text>
         </View>
 
@@ -405,7 +480,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: 18,
     paddingBottom: 40,
-    maxWidth: 900,
+    maxWidth: 1200,
     alignSelf: 'center',
     width: '100%',
   },

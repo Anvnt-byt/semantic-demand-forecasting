@@ -22,5 +22,5 @@ def query_to_polars(sql: str, params: Optional[dict] = None) -> pl.DataFrame:
             return pl.DataFrame(schema={col: pl.Utf8 for col in columns})
         
         # Mapeo a diccionario de listas para construcción nativa de Polars
-        data = {col: [row[i] for row in rows] for i, col in enumerate(columns)}
-        return pl.DataFrame(data)
+        data = {col: [float(row[i]) if hasattr(row[i], "as_integer_ratio") else row[i] for row in rows] for i, col in enumerate(columns)}
+        return pl.DataFrame(data, strict=False)

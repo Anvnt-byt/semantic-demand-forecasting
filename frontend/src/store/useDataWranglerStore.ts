@@ -44,16 +44,28 @@ interface DataWranglerState {
   
   // Herramientas de saneamiento
   applyOutlierTreatment: (column: string, method: 'iqr' | 'zscore', action: 'clip' | 'remove' | 'median') => void;
-  applyImputation: (column: string, strategy: 'median' | 'mean' | 'zero' | 'ffill') => void;
+  applyImputation: (column: string, strategy: 'median' | 'mean' | 'zero' | 'ffill') => { affected: number };
+  applyBatchAutoImpute: () => { affectedRows: number; affectedCols: string[] };
   applyTextNormalization: (column: string, action: 'trim' | 'upper' | 'lower' | 'clean_special') => void;
   applyDerivedColumn: (name: string, formula: 'margin' | 'day_of_week' | 'is_weekend' | 'revenue') => void;
   applyFilter: (column: string, operator: '>' | '<' | '==' | '!=', value: any) => void;
+  applySeparateRefunds: () => { affected: number };
 
   // Pipeline y Capas
   toggleRecipeStep: (stepId: string) => void;
   undo: () => void;
   redo: () => void;
   resetAll: () => void;
+}
+
+export function isMissingOrNull(val: any): boolean {
+  if (val === null || val === undefined) return true;
+  if (typeof val === 'string') {
+    const s = val.trim().toUpperCase();
+    return s === '' || s === '<NULL>' || s === 'NULL' || s === 'NAN' || s === 'UNDEFINED';
+  }
+  if (typeof val === 'number' && isNaN(val)) return true;
+  return false;
 }
 
 function calculateColumnProfile(column: string, data: Record<string, any>[]): ColumnProfile {
@@ -82,7 +94,7 @@ function calculateColumnProfile(column: string, data: Record<string, any>[]): Co
 
   for (const row of data) {
     const val = row[column];
-    if (val === null || val === undefined || val === '') {
+    if (isMissingOrNull(val)) {
       nullCount++;
     } else {
       values.push(val);
@@ -281,7 +293,7 @@ export const useDataWranglerStore = create<DataWranglerState>((set, get) => ({
 
     const newDataset = activeDataset.map(row => {
       const val = row[column];
-      if (val === null || val === undefined || val === '') {
+      if (isMissingOrNull(val)) {
         affected++;
         const replacement = strategy === 'ffill' ? lastValid : fillValue;
         return { ...row, [column]: replacement };
@@ -290,12 +302,16 @@ export const useDataWranglerStore = create<DataWranglerState>((set, get) => ({
       return row;
     });
 
+    if (affected === 0) {
+      return { affected: 0 };
+    }
+
     const step: RecipeStep = {
       id: `step-${Date.now()}`,
       name: `Imputar Nulos: ${strategy}`,
       type: 'impute',
       targetColumn: column,
-      details: `Reemplazo con ${strategy === 'ffill' ? 'valor anterior' : fillValue}`,
+      details: `Reemplazo de ${affected} nulos con ${strategy === 'ffill' ? 'valor anterior' : fillValue}`,
       affectedRows: affected,
       enabled: true,
     };
@@ -307,6 +323,74 @@ export const useDataWranglerStore = create<DataWranglerState>((set, get) => ({
       recipe: [...recipe, step],
       columnProfiles: computeProfiles(newDataset),
     });
+
+    return { affected };
+  },
+
+  applyBatchAutoImpute: () => {
+    const { activeDataset, columns, columnProfiles, historyPast, recipe, computeProfiles } = get();
+    if (activeDataset.length === 0) return { affectedRows: 0, affectedCols: [] };
+
+    const colsWithNulls: string[] = [];
+    for (const col of columns) {
+      const p = columnProfiles[col];
+      if (p && p.nullCount > 0) {
+        colsWithNulls.push(col);
+      }
+    }
+
+    if (colsWithNulls.length === 0) {
+      return { affectedRows: 0, affectedCols: [] };
+    }
+
+    let totalCellsFixed = 0;
+    const newDataset = activeDataset.map(row => {
+      const updatedRow = { ...row };
+      for (const col of colsWithNulls) {
+        if (isMissingOrNull(updatedRow[col])) {
+          totalCellsFixed++;
+          const p = columnProfiles[col];
+          if (col === 'total' && updatedRow.cantidad !== undefined && updatedRow.precio_unitario !== undefined && !isMissingOrNull(updatedRow.precio_unitario)) {
+            updatedRow[col] = Number((Number(updatedRow.cantidad) * Number(updatedRow.precio_unitario)).toFixed(2));
+          } else if (p && p.dataType === 'numeric') {
+            updatedRow[col] = p.median !== null ? p.median : 0;
+          } else {
+            updatedRow[col] = 'Sin clasificar';
+          }
+        }
+      }
+      return updatedRow;
+    });
+
+    // Asegurar que si precio_unitario fue imputado, total también refleje cantidad * precio
+    const fixedDataset = newDataset.map(row => {
+      if (isMissingOrNull(row.total)) {
+        if (row.cantidad && row.precio_unitario) {
+          return { ...row, total: Number((Number(row.cantidad) * Number(row.precio_unitario)).toFixed(2)) };
+        }
+      }
+      return row;
+    });
+
+    const step: RecipeStep = {
+      id: `step-${Date.now()}`,
+      name: `Auto-Imputación Global (${colsWithNulls.length} cols)`,
+      type: 'impute',
+      targetColumn: colsWithNulls.join(', '),
+      details: `${totalCellsFixed} celdas nulas corregidas en [${colsWithNulls.join(', ')}]`,
+      affectedRows: totalCellsFixed,
+      enabled: true,
+    };
+
+    set({
+      historyPast: [...historyPast, activeDataset],
+      historyFuture: [],
+      activeDataset: fixedDataset,
+      recipe: [...recipe, step],
+      columnProfiles: computeProfiles(fixedDataset),
+    });
+
+    return { affectedRows: totalCellsFixed, affectedCols: colsWithNulls };
   },
 
   applyTextNormalization: (column: string, action: 'trim' | 'upper' | 'lower' | 'clean_special') => {
@@ -353,11 +437,7 @@ export const useDataWranglerStore = create<DataWranglerState>((set, get) => ({
 
     const newDataset = activeDataset.map(row => {
       let derivedVal: any = null;
-      if (formula === 'margin') {
-        const p = Number(row.precio_unitario || 0);
-        const c = Number(row.costo_unitario || p * 0.7);
-        derivedVal = Number((p - c).toFixed(2));
-      } else if (formula === 'revenue') {
+      if (formula === 'revenue') {
         const q = Number(row.cantidad || 0);
         const p = Number(row.precio_unitario || 0);
         derivedVal = Number((q * p).toFixed(2));
@@ -368,6 +448,10 @@ export const useDataWranglerStore = create<DataWranglerState>((set, get) => ({
       } else if (formula === 'is_weekend') {
         const d = new Date(row.fecha);
         derivedVal = isNaN(d.getTime()) ? false : (d.getDay() === 0 || d.getDay() === 6);
+      } else if (formula === 'margin') {
+        const p = Number(row.precio_unitario || 0);
+        const c = Number(row.costo_unitario !== undefined ? row.costo_unitario : 0);
+        derivedVal = Number((p - c).toFixed(2));
       }
       affected++;
       return { ...row, [name]: derivedVal };
@@ -434,6 +518,40 @@ export const useDataWranglerStore = create<DataWranglerState>((set, get) => ({
       recipe: [...recipe, step],
       columnProfiles: computeProfiles(newDataset),
     });
+  },
+
+  applySeparateRefunds: () => {
+    const { activeDataset, historyPast, recipe, computeProfiles } = get();
+    const initialLen = activeDataset.length;
+    const newDataset = activeDataset.filter(row => {
+      const cant = Number(row['cantidad']);
+      return isNaN(cant) || cant >= 0;
+    });
+
+    const affected = initialLen - newDataset.length;
+    if (affected === 0) {
+      return { affected: 0 };
+    }
+
+    const step: RecipeStep = {
+      id: `step-${Date.now()}`,
+      name: 'Separar Devoluciones (Cantidad < 0)',
+      type: 'filter',
+      targetColumn: 'cantidad',
+      details: `Aisladas ${affected} devoluciones con saldo negativo para no distorsionar el modelo`,
+      affectedRows: affected,
+      enabled: true,
+    };
+
+    set({
+      historyPast: [...historyPast, activeDataset],
+      historyFuture: [],
+      activeDataset: newDataset,
+      recipe: [...recipe, step],
+      columnProfiles: computeProfiles(newDataset),
+    });
+
+    return { affected };
   },
 
   toggleRecipeStep: (stepId: string) => {

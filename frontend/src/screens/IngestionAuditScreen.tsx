@@ -17,8 +17,10 @@ import {
   triggerDatabaseIngestionApi,
   uploadDataFileApi,
 } from '../api/endpoints/ingestionApi';
+import { fetchDirtyDemoBatchApi } from '../api/endpoints/curationApi';
 import { DatabaseConnectionParams, IngestionStatusResponse } from '../types/ingestion.types';
 import { useDataWranglerStore } from '../store/useDataWranglerStore';
+import { useConfigStore } from '../store/useConfigStore';
 
 interface IngestionAuditScreenProps {
   onComplete?: () => void;
@@ -29,10 +31,45 @@ export const IngestionAuditScreen: React.FC<IngestionAuditScreenProps> = ({ onCo
   const { colors } = useTheme();
   const { showToast } = useToast();
   const { loadDataset } = useDataWranglerStore();
+  const { setPipelineStep } = useConfigStore();
 
   const [activeTab, setActiveTab] = useState<'pos' | 'file'>('pos');
   const [loading, setLoading] = useState(false);
   const [auditResult, setAuditResult] = useState<IngestionStatusResponse | null>(null);
+
+  const handleLoadDemoDirtyBatch = async () => {
+    setLoading(true);
+    try {
+      const data = await fetchDirtyDemoBatchApi();
+      loadDataset('Lote_Cierre_Demo_Octubre', data.records);
+      setAuditResult({
+        success: true,
+        audit: {
+          batch_id: 'DEMO-BATCH-202610-01',
+          fuente: 'POS_MYSQL',
+          tipo_entidad: 'ventas',
+          total_registros: data.records.length,
+          registros_validos: data.records.length - 4,
+          registros_descartados: 0,
+          duplicados_detectados: 0,
+          duracion_ms: 28,
+          created_at: new Date().toISOString(),
+          errores_muestra: [
+            { row_number: 5, reason: '[SKU-OUTLIER] Cantidad capturada 120 (Outlier extremo > 3 IQR)' },
+            { row_number: 7, reason: '[SKU-ABA-09] Precio y total NULL (Nuevo producto sin costo asignado)' },
+            { row_number: 9, reason: '[SKU-BEV-01] Cantidad negativa -2 (Devolución mezclada en ventas)' },
+            { row_number: 10, reason: '[SKU-LIM-01] Espacios en blanco redundantes en descripción' }
+          ]
+        },
+        message: 'Lote de cierre extraído con éxito. Detectadas anomalías que requieren curaduría.'
+      });
+      showToast(`Lote demo cargado con ${data.records.length} transacciones y anomalías controladas.`, { type: 'success' });
+    } catch {
+      showToast('No se pudo conectar al endpoint demo. Verifique el backend.', { type: 'warning' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Formulario POS
   const [engine, setEngine] = useState<'mysql' | 'postgresql'>('mysql');
@@ -103,7 +140,7 @@ export const IngestionAuditScreen: React.FC<IngestionAuditScreenProps> = ({ onCo
       };
       const res = await uploadDataFileApi(fileMock, entity);
       setAuditResult(res);
-      showToast(`${res.audit.registros_validos} registros saneados y guardados en PostgreSQL.`, { type: 'success' });
+      showToast(`${res.audit.registros_validos} registros saneados y persistidos localmente en SQLite (pos_system.db).`, { type: 'success' });
       if (onComplete) onComplete();
     } catch (err: any) {
       showToast(err.message || 'Fallo al procesar archivo', { type: 'error' });
@@ -123,6 +160,41 @@ export const IngestionAuditScreen: React.FC<IngestionAuditScreenProps> = ({ onCo
           </Text>
         </View>
       </View>
+
+      {/* Lote Demo Quick Action Card */}
+      <TactileCard>
+        <Text style={[styles.cardTitle, { color: colors.accentPrimary }]}>
+          LOTE DE EVALUACIÓN • TURNO RECIENTE CON ANOMALÍAS DE CAJA
+        </Text>
+        <Text style={[styles.cardHelp, { color: colors.textSecondary }]}>
+          Simule la extracción automatizada del último turno de venta conteniendo anomalías reales de cajero (outliers, nulos, devoluciones).
+        </Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8 }}>
+          <TouchableOpacity
+            onPress={handleLoadDemoDirtyBatch}
+            disabled={loading}
+            style={[styles.actionBtn, { backgroundColor: colors.accentPrimary, paddingHorizontal: 16 }]}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFF" size="small" />
+            ) : (
+              <Text style={styles.syncBtnText}>Cargar Lote de Cierre Reciente (Demo)</Text>
+            )}
+          </TouchableOpacity>
+
+          {auditResult && (
+            <TouchableOpacity
+              onPress={() => {
+                setPipelineStep(3);
+                if (onNavigateToStudio) onNavigateToStudio();
+              }}
+              style={[styles.actionBtn, { backgroundColor: colors.confidenceHigh, paddingHorizontal: 16 }]}
+            >
+              <Text style={styles.syncBtnText}>Inspeccionar en Preparación de Datos</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </TactileCard>
 
       {/* Selector de Pestaña: POS vs Archivo */}
       <View style={styles.tabSelector}>
@@ -301,7 +373,7 @@ export const IngestionAuditScreen: React.FC<IngestionAuditScreenProps> = ({ onCo
             {loading ? (
               <ActivityIndicator color="#FFF" size="small" />
             ) : (
-              <Text style={styles.syncBtnText}>Procesar e Ingestar en PostgreSQL</Text>
+              <Text style={styles.syncBtnText}>Procesar e Ingestar en Base Local (SQLite)</Text>
             )}
           </TouchableOpacity>
         </TactileCard>
@@ -351,6 +423,17 @@ export const IngestionAuditScreen: React.FC<IngestionAuditScreenProps> = ({ onCo
               ))}
             </View>
           )}
+
+          {onNavigateToStudio && (
+            <TouchableOpacity
+              onPress={onNavigateToStudio}
+              style={[styles.actionBtn, { backgroundColor: colors.accentPrimary, marginTop: 14, alignSelf: 'flex-start' }]}
+            >
+              <Text style={[styles.syncBtnText, { color: '#FFF' }]}>
+                Abrir en Preparación & Calidad de Datos para Inspección
+              </Text>
+            </TouchableOpacity>
+          )}
         </TactileCard>
       )}
     </ScrollView>
@@ -364,7 +447,7 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     paddingBottom: 40,
-    maxWidth: 1040,
+    maxWidth: 1200,
     alignSelf: 'center',
     width: '100%',
   },

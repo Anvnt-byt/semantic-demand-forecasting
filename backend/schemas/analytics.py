@@ -89,6 +89,7 @@ class ProductForecastItem(BaseModel):
     rmse: Optional[float] = Field(None, description="Raíz del error cuadrático medio (RMSE)")
     stock_seguridad_sugerido: Optional[float] = Field(None, ge=0, description="Stock de seguridad calculado para el tiempo de entrega")
     punto_reorden_sugerido: Optional[float] = Field(None, ge=0, description="Punto de reorden (ROP) sugerido")
+    historico_reciente: Optional[List[ForecastPoint]] = Field(default_factory=list, description="Últimos días reales de demanda empalmados")
     predicciones: List[ForecastPoint] = Field(..., description="Puntos de pronóstico temporal")
 
 class DemandForecastResponse(BaseModel):
@@ -112,3 +113,18 @@ class LicenseVerifyResponse(BaseModel):
     expires_at: Optional[datetime] = Field(None, description="Fecha de expiración de la suscripción")
     dias_restantes: Optional[int] = Field(None, description="Días de vigencia restantes")
     features_habilitadas: List[str] = Field(default_factory=list, description="Lista de módulos y funciones activas para el plan")
+
+
+# --- 7. Configuración Modular de Exportación de Reportes ---
+
+class ExportConfigPayload(BaseModel):
+    incluir_kpis: bool = Field(True, description="Incluir resumen macroeconómico de KPIs")
+    incluir_abc: bool = Field(True, description="Incluir análisis de concentración Pareto ABC")
+    incluir_vendedores: bool = Field(True, description="Incluir desempeño comercial por vendedor")
+    incluir_proyeccion: bool = Field(False, description="Incluir serie de proyección de demanda y diagnóstico ML")
+    incluir_linaje: bool = Field(True, description="Incluir auditoría de saneamiento y certificación on-premise")
+    sku_proyeccion: Optional[str] = Field(None, description="SKU específico proyectado si se incluye")
+    notas_analista: Optional[str] = Field(None, description="Conclusiones, contexto operativo y recomendaciones del analista")
+    autor_analista: Optional[str] = Field("Analista de Datos POS", description="Nombre del analista firmante")
+    cargo_analista: Optional[str] = Field("Operaciones y Cadena de Suministro", description="Cargo del analista firmante")
+

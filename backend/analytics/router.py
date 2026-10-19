@@ -11,7 +11,8 @@ from schemas.analytics import (
     SellersPerformanceResponse,
     DemandForecastResponse,
     LicenseVerifyRequest,
-    LicenseVerifyResponse
+    LicenseVerifyResponse,
+    ExportConfigPayload
 )
 from analytics.metrics import (
     calculate_kpis_summary,
@@ -105,13 +106,15 @@ def predict_demand_from_db(
     request: Request,
     h: int = Query(7, ge=1, le=90, description="Horizonte de días a pronosticar"),
     lead_time: int = Query(0, ge=0, le=180, description="Días de lead time de proveedor"),
+    sku: Optional[str] = Query(None, description="SKU específico a pronosticar"),
     max_series: int = Query(50, ge=1, le=200, description="Máximo de productos simultáneos")
 ):
     """
-    Ejecuta el pronóstico de demanda supervisado (LightGBM) a partir de los datos en PostgreSQL.
+    Ejecuta el pronóstico de demanda supervisado (LightGBM) a partir de los datos en base de datos.
     """
     try:
-        return generate_demand_forecast(h=h, lead_time=lead_time, max_series=max_series)
+        sku_list = [sku.strip()] if sku and sku.strip() else None
+        return generate_demand_forecast(h=h, lead_time=lead_time, sku_list=sku_list, max_series=max_series)
     except RuntimeError as re:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -124,23 +127,57 @@ def predict_demand_from_db(
             detail="Error interno al ejecutar el modelo de pronóstico."
         )
 
+def _build_excel_response(config: Optional[ExportConfigPayload] = None):
+    cfg = config or ExportConfigPayload()
+    kpis = calculate_kpis_summary()
+    turnover = calculate_products_turnover(window_days=30)
+    sellers = calculate_sellers_performance()
+    forecast_data = None
+    if cfg.incluir_proyeccion:
+        try:
+            sku_list = [cfg.sku_proyeccion.strip()] if cfg.sku_proyeccion and cfg.sku_proyeccion.strip() else None
+            fc = generate_demand_forecast(h=14, lead_time=3, sku_list=sku_list, max_series=1)
+            forecast_data = fc.model_dump() if hasattr(fc, "model_dump") else fc.dict()
+        except Exception as fe:
+            logger.warning(f"No se pudo anexar proyección a Excel: {fe}")
+
+    excel_buffer = generate_excel_report(kpis, turnover, sellers, config=cfg, forecast_data=forecast_data)
+    filename = f"reporte_pos_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    return StreamingResponse(
+        excel_buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+def _build_pdf_response(config: Optional[ExportConfigPayload] = None):
+    cfg = config or ExportConfigPayload()
+    kpis = calculate_kpis_summary()
+    turnover = calculate_products_turnover(window_days=30)
+    sellers = calculate_sellers_performance()
+    forecast_data = None
+    if cfg.incluir_proyeccion:
+        try:
+            sku_list = [cfg.sku_proyeccion.strip()] if cfg.sku_proyeccion and cfg.sku_proyeccion.strip() else None
+            fc = generate_demand_forecast(h=14, lead_time=3, sku_list=sku_list, max_series=1)
+            forecast_data = fc.model_dump() if hasattr(fc, "model_dump") else fc.dict()
+        except Exception as fe:
+            logger.warning(f"No se pudo anexar proyección a PDF: {fe}")
+
+    pdf_buffer = generate_pdf_report(kpis, turnover, sellers, config=cfg, forecast_data=forecast_data)
+    filename = f"reporte_ejecutivo_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.pdf"
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
 @analytics_router.get("/export/excel")
-def export_excel_report(request: Request):
+def export_excel_report_get(request: Request):
     """
-    Genera y descarga un reporte consolidado en formato Excel (.xlsx).
+    Genera y descarga un reporte consolidado en formato Excel (.xlsx) por defecto.
     """
     try:
-        kpis = calculate_kpis_summary()
-        turnover = calculate_products_turnover(window_days=30)
-        sellers = calculate_sellers_performance()
-        excel_buffer = generate_excel_report(kpis, turnover, sellers)
-        
-        filename = f"reporte_pos_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.xlsx"
-        return StreamingResponse(
-            excel_buffer,
-            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f"attachment; filename={filename}"}
-        )
+        return _build_excel_response()
     except Exception as e:
         logger.error(f"Error generando reporte Excel: {e}")
         raise HTTPException(
@@ -148,28 +185,46 @@ def export_excel_report(request: Request):
             detail="No fue posible generar el archivo Excel."
         )
 
-@analytics_router.get("/export/pdf")
-def export_pdf_report(request: Request):
+@analytics_router.post("/export/excel")
+def export_excel_report_post(request: Request, config: ExportConfigPayload):
     """
-    Genera y descarga un reporte ejecutivo consolidado en formato PDF.
+    Genera y descarga un reporte modular configurado en formato Excel (.xlsx).
     """
     try:
-        kpis = calculate_kpis_summary()
-        turnover = calculate_products_turnover(window_days=30)
-        sellers = calculate_sellers_performance()
-        pdf_buffer = generate_pdf_report(kpis, turnover, sellers)
-        
-        filename = f"reporte_ejecutivo_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.pdf"
-        return StreamingResponse(
-            pdf_buffer,
-            media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        return _build_excel_response(config)
+    except Exception as e:
+        logger.error(f"Error generando reporte Excel modular: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No fue posible generar el archivo Excel modular."
         )
+
+@analytics_router.get("/export/pdf")
+def export_pdf_report_get(request: Request):
+    """
+    Genera y descarga un reporte ejecutivo consolidado en formato PDF por defecto.
+    """
+    try:
+        return _build_pdf_response()
     except Exception as e:
         logger.error(f"Error generando reporte PDF: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No fue posible generar el archivo PDF."
+        )
+
+@analytics_router.post("/export/pdf")
+def export_pdf_report_post(request: Request, config: ExportConfigPayload):
+    """
+    Genera y descarga un reporte ejecutivo modular configurado en formato PDF.
+    """
+    try:
+        return _build_pdf_response(config)
+    except Exception as e:
+        logger.error(f"Error generando reporte PDF modular: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No fue posible generar el archivo PDF modular."
         )
 
 # --- Endpoint de Licencia ---

@@ -4,7 +4,15 @@ import { useTheme } from '../../theme/ThemeContext';
 import { typography } from '../../theme/theme';
 import { useDataWranglerStore } from '../../store/useDataWranglerStore';
 
-export const RecipeHistoryPanel: React.FC = () => {
+interface RecipeHistoryPanelProps {
+  onConsolidate?: () => void;
+  loadingConsolidate?: boolean;
+}
+
+export const RecipeHistoryPanel: React.FC<RecipeHistoryPanelProps> = ({
+  onConsolidate,
+  loadingConsolidate,
+}) => {
   const { colors } = useTheme();
   const { recipe, toggleRecipeStep, resetAll, activeDataset, rawDataset } = useDataWranglerStore();
 
@@ -18,7 +26,7 @@ export const RecipeHistoryPanel: React.FC = () => {
             RECETA DE TRANSFORMACIÓN ({recipe.length} PASOS)
           </Text>
           <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-            Capas no destructivas • {totalAffected} modificaciones acumuladas
+            Pasos no destructivos • {totalAffected} modificaciones acumuladas
           </Text>
         </View>
 
@@ -80,9 +88,25 @@ export const RecipeHistoryPanel: React.FC = () => {
       {/* Resumen del dataset */}
       <View style={[styles.summaryFooter, { borderTopColor: colors.surfaceBorder }]}>
         <Text style={[styles.summaryText, { color: colors.textMuted }]}>
-          Filas originales: {rawDataset.length.toLocaleString()} ➔ Filas limpias: <Text style={{ color: colors.confidenceHigh, fontWeight: 'bold' }}>{activeDataset.length.toLocaleString()}</Text>
+          {`Filas originales: ${rawDataset.length.toLocaleString()} -> Limpias: `}<Text style={{ color: colors.confidenceHigh, fontWeight: 'bold' }}>{activeDataset.length.toLocaleString()}</Text>
         </Text>
       </View>
+
+      {onConsolidate && (
+        <TouchableOpacity
+          onPress={onConsolidate}
+          disabled={loadingConsolidate || activeDataset.length === 0}
+          style={[
+            styles.consolidateBtn,
+            { backgroundColor: colors.confidenceHigh },
+            (loadingConsolidate || activeDataset.length === 0) && { opacity: 0.5 },
+          ]}
+        >
+          <Text style={styles.consolidateBtnText}>
+            {loadingConsolidate ? 'Consolidando...' : 'Consolidar en SQLite'}
+          </Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
@@ -133,7 +157,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   stepsList: {
-    maxHeight: 220,
+    maxHeight: 340,
   },
   stepCard: {
     borderWidth: 1,
@@ -200,5 +224,21 @@ const styles = StyleSheet.create({
   summaryText: {
     fontSize: 11,
     fontFamily: typography.fontFamilyMono,
+  },
+  consolidateBtn: {
+    marginTop: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  consolidateBtnText: {
+    color: '#FFFFFF',
+    fontSize: typography.fontSize.xs,
+    fontFamily: typography.fontFamilyMono,
+    fontWeight: typography.fontWeight.bold,
+    letterSpacing: 0.5,
   },
 });

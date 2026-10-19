@@ -5,10 +5,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from database.models import Base
 
-DEFAULT_DB_URL = "postgresql://postgres:postgres@localhost:5432/demand_forecasting"
+DEFAULT_SQLITE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "posbuddy_local.db"))
+DEFAULT_DB_URL = f"sqlite:///{DEFAULT_SQLITE_PATH}"
 
 def get_database_url() -> str:
-    url = os.getenv("DATABASE_URL", DEFAULT_DB_URL).strip()
+    url = os.getenv("DATABASE_URL", "").strip()
+    if not url:
+        return DEFAULT_DB_URL
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql+psycopg2://", 1)
     elif url.startswith("postgresql://") and not url.startswith("postgresql+"):
@@ -25,23 +28,37 @@ def get_engine(db_url: str = None):
     # Si la URL cambió o el motor no existe, recreamos
     if _engine is None or str(_engine.url) != target_url:
         is_sqlite = target_url.startswith("sqlite")
-        connect_args = {"check_same_thread": False} if is_sqlite else {}
         
         if is_sqlite:
+            os.makedirs(os.path.dirname(DEFAULT_SQLITE_PATH), exist_ok=True)
             _engine = create_engine(
                 target_url,
-                connect_args=connect_args,
+                connect_args={"check_same_thread": False},
                 echo=False
             )
         else:
-            _engine = create_engine(
-                target_url,
-                pool_size=10,
-                max_overflow=20,
-                pool_pre_ping=True,
-                pool_recycle=3600,
-                echo=False
-            )
+            try:
+                temp_engine = create_engine(
+                    target_url,
+                    pool_size=10,
+                    max_overflow=20,
+                    pool_pre_ping=True,
+                    pool_recycle=3600,
+                    echo=False
+                )
+                # Probar conexión real a Postgres
+                with temp_engine.connect() as conn:
+                    pass
+                _engine = temp_engine
+            except Exception as e:
+                import logging
+                logging.warning("No se pudo conectar a PostgreSQL (%s). Alternando a SQLite local en %s", e, DEFAULT_SQLITE_PATH)
+                os.makedirs(os.path.dirname(DEFAULT_SQLITE_PATH), exist_ok=True)
+                _engine = create_engine(
+                    DEFAULT_DB_URL,
+                    connect_args={"check_same_thread": False},
+                    echo=False
+                )
         _SessionFactory = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
         
     return _engine

@@ -1,19 +1,25 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
+import { useToast } from '../../context/ToastContext';
 import { typography } from '../../theme/theme';
 import { useDataWranglerStore } from '../../store/useDataWranglerStore';
 
 export const CleaningToolbar: React.FC = () => {
   const { colors } = useTheme();
+  const { showToast } = useToast();
   const {
+    columns,
     selectedColumn,
+    selectColumn,
     columnProfiles,
     applyOutlierTreatment,
     applyImputation,
+    applyBatchAutoImpute,
     applyTextNormalization,
     applyDerivedColumn,
     applyFilter,
+    applySeparateRefunds,
     undo,
     redo,
     historyPast,
@@ -23,41 +29,145 @@ export const CleaningToolbar: React.FC = () => {
   const [activeTool, setActiveTool] = useState<'outlier' | 'impute' | 'text' | 'derive' | 'filter' | null>(null);
   const [filterOp, setFilterOp] = useState<'>' | '<' | '==' | '!='>('>');
   const [filterVal, setFilterVal] = useState('');
-  const [deriveName, setDeriveName] = useState('margen_unitario');
-  const [deriveFormula, setDeriveFormula] = useState<'margin' | 'revenue' | 'day_of_week' | 'is_weekend'>('margin');
+  const [deriveName, setDeriveName] = useState('subtotal_venta');
+  const [deriveFormula, setDeriveFormula] = useState<'revenue' | 'day_of_week' | 'is_weekend' | 'margin'>('revenue');
 
   const profile = selectedColumn ? columnProfiles[selectedColumn] : null;
   const isNumeric = profile?.dataType === 'numeric';
 
+  const handleOpenImpute = () => {
+    if (activeTool === 'impute') {
+      setActiveTool(null);
+      return;
+    }
+    // Si la columna actual no tiene nulos, auto-seleccionar la primera que sí tenga
+    if (!profile || profile.nullCount === 0) {
+      const colWithNulls = columns.find(c => (columnProfiles[c]?.nullCount ?? 0) > 0);
+      if (colWithNulls) {
+        selectColumn(colWithNulls);
+      }
+    }
+    setActiveTool('impute');
+  };
+
+  const handleOpenOutliers = () => {
+    if (activeTool === 'outlier') {
+      setActiveTool(null);
+      return;
+    }
+    if (!isNumeric) {
+      const numCol = columns.find(c => columnProfiles[c]?.dataType === 'numeric');
+      if (numCol) {
+        selectColumn(numCol);
+      }
+    }
+    setActiveTool('outlier');
+  };
+
+  const handleBatchAutoImpute = () => {
+    const res = applyBatchAutoImpute();
+    if (res.affectedRows > 0) {
+      showToast(`Auto-imputación exitosa: ${res.affectedRows} celdas corregidas en [${res.affectedCols.join(', ')}].`, { type: 'success' });
+      setActiveTool(null);
+    } else {
+      showToast('No se detectaron valores nulos o vacíos en el dataset activo.', { type: 'info' });
+    }
+  };
+
+  const handleSingleImpute = (strategy: 'median' | 'mean' | 'zero' | 'ffill') => {
+    if (!selectedColumn) return;
+    const res = applyImputation(selectedColumn, strategy);
+    if (res.affected > 0) {
+      showToast(`Imputados ${res.affected} nulos en [${selectedColumn}] con estrategia ${strategy}.`, { type: 'success' });
+      setActiveTool(null);
+    } else {
+      showToast(`La columna [${selectedColumn}] no contiene celdas nulas.`, { type: 'warning' });
+    }
+  };
+
+  const handleRefunds = () => {
+    const res = applySeparateRefunds();
+    if (res.affected > 0) {
+      showToast(`Aisladas ${res.affected} devoluciones con saldo negativo del dataset.`, { type: 'success' });
+    } else {
+      showToast('No se encontraron transacciones con cantidad negativa en el lote actual.', { type: 'info' });
+    }
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
-      {/* Barra superior de herramientas de saneamiento */}
+      <View style={styles.sidebarHeader}>
+        <Text style={[styles.sidebarTitle, { color: colors.accentPrimary }]}>CAJA DE HERRAMIENTAS</Text>
+        <Text style={[styles.sidebarSubtitle, { color: colors.textMuted }]}>
+          Columna: <Text style={{ color: colors.textPrimary, fontWeight: 'bold' }}>{selectedColumn || 'Sin seleccionar'}</Text>
+        </Text>
+      </View>
+
+      {/* Herramientas de Calidad & Saneamiento */}
       <View style={styles.buttonsBar}>
-        <TouchableOpacity
-          onPress={() => setActiveTool(activeTool === 'outlier' ? null : 'outlier')}
-          disabled={!isNumeric}
-          style={[
-            styles.toolBtn,
-            { backgroundColor: activeTool === 'outlier' ? colors.accentPrimary : colors.surfaceSecondary, borderColor: colors.surfaceBorder },
-            !isNumeric && styles.btnDisabled,
-          ]}
-        >
-          <Text style={[styles.toolBtnText, { color: activeTool === 'outlier' ? '#FFFFFF' : colors.textPrimary }]}>
-            Tratar Valores Atípicos
-          </Text>
-        </TouchableOpacity>
+        <Text style={[styles.sectionHeading, { color: colors.textMuted }]}>CALIDAD & VALORES NULOS</Text>
 
         <TouchableOpacity
-          onPress={() => setActiveTool(activeTool === 'impute' ? null : 'impute')}
-          disabled={!selectedColumn}
+          onPress={handleOpenImpute}
           style={[
             styles.toolBtn,
             { backgroundColor: activeTool === 'impute' ? colors.accentPrimary : colors.surfaceSecondary, borderColor: colors.surfaceBorder },
-            !selectedColumn && styles.btnDisabled,
           ]}
         >
           <Text style={[styles.toolBtnText, { color: activeTool === 'impute' ? '#FFFFFF' : colors.textPrimary }]}>
             Imputar Valores Vacíos
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={handleBatchAutoImpute}
+          style={[
+            styles.toolBtn,
+            { backgroundColor: colors.surfaceSecondary, borderColor: colors.surfaceBorder },
+          ]}
+        >
+          <Text style={[styles.toolBtnText, { color: colors.confidenceHigh }]}>
+            Auto-Saneamiento (1 Clic)
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={handleRefunds}
+          style={[
+            styles.toolBtn,
+            { backgroundColor: colors.surfaceSecondary, borderColor: colors.surfaceBorder },
+          ]}
+        >
+          <Text style={[styles.toolBtnText, { color: colors.alertCritical }]}>
+            Aislar Devoluciones (&lt; 0)
+          </Text>
+        </TouchableOpacity>
+
+        <Text style={[styles.sectionHeading, { color: colors.textMuted }]}>ANOMALÍAS & OUTLIERS</Text>
+
+        <TouchableOpacity
+          onPress={handleOpenOutliers}
+          style={[
+            styles.toolBtn,
+            { backgroundColor: activeTool === 'outlier' ? colors.accentPrimary : colors.surfaceSecondary, borderColor: colors.surfaceBorder },
+          ]}
+        >
+          <Text style={[styles.toolBtnText, { color: activeTool === 'outlier' ? '#FFFFFF' : colors.textPrimary }]}>
+            Tratar Outliers (IQR)
+          </Text>
+        </TouchableOpacity>
+
+        <Text style={[styles.sectionHeading, { color: colors.textMuted }]}>TRANSFORMACIONES</Text>
+
+        <TouchableOpacity
+          onPress={() => setActiveTool(activeTool === 'derive' ? null : 'derive')}
+          style={[
+            styles.toolBtn,
+            { backgroundColor: activeTool === 'derive' ? colors.accentPrimary : colors.surfaceSecondary, borderColor: colors.surfaceBorder },
+          ]}
+        >
+          <Text style={[styles.toolBtnText, { color: activeTool === 'derive' ? '#FFFFFF' : colors.textPrimary }]}>
+            Derivar Columna
           </Text>
         </TouchableOpacity>
 
@@ -76,18 +186,6 @@ export const CleaningToolbar: React.FC = () => {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => setActiveTool(activeTool === 'derive' ? null : 'derive')}
-          style={[
-            styles.toolBtn,
-            { backgroundColor: activeTool === 'derive' ? colors.accentPrimary : colors.surfaceSecondary, borderColor: colors.surfaceBorder },
-          ]}
-        >
-          <Text style={[styles.toolBtnText, { color: activeTool === 'derive' ? '#FFFFFF' : colors.textPrimary }]}>
-            Derivar Columna
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
           onPress={() => setActiveTool(activeTool === 'filter' ? null : 'filter')}
           disabled={!selectedColumn}
           style={[
@@ -102,6 +200,7 @@ export const CleaningToolbar: React.FC = () => {
         </TouchableOpacity>
 
         {/* Undo / Redo */}
+        <Text style={[styles.sectionHeading, { color: colors.textMuted }]}>HISTORIAL RÁPIDO</Text>
         <View style={styles.historyGroup}>
           <TouchableOpacity
             onPress={undo}
@@ -121,15 +220,42 @@ export const CleaningToolbar: React.FC = () => {
       </View>
 
       {/* Subpanel de configuración según herramienta activa */}
-      {activeTool === 'outlier' && isNumeric && (
+      {activeTool === 'outlier' && (
         <View style={[styles.actionPanel, { backgroundColor: colors.surfaceHighlight }]}>
           <Text style={[styles.actionPrompt, { color: colors.textPrimary }]}>
-            Tratamiento de Outliers en [{selectedColumn}]:
+            Tratamiento de Outliers (Seleccione columna numérica):
           </Text>
+          {/* Selector de columna numérica */}
+          <View style={styles.columnChipsContainer}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row', marginVertical: 4 }}>
+              {columns
+                .filter(col => columnProfiles[col]?.dataType === 'numeric')
+                .map(col => {
+                  const p = columnProfiles[col];
+                  const outliers = p?.outlierCount ?? 0;
+                  const isColSelected = col === selectedColumn;
+                  return (
+                    <TouchableOpacity
+                      key={col}
+                      onPress={() => selectColumn(col)}
+                      style={[
+                        styles.colChip,
+                        { backgroundColor: isColSelected ? colors.accentPrimary : colors.surfaceSecondary, borderColor: colors.surfaceBorder },
+                        outliers > 0 && !isColSelected && { borderColor: colors.alertCritical, borderWidth: 1.5 }
+                      ]}
+                    >
+                      <Text style={[styles.colChipText, { color: isColSelected ? '#FFFFFF' : colors.textPrimary }]}>
+                        {col} {outliers > 0 ? `[${outliers} outliers]` : ''}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+            </ScrollView>
+          </View>
           <View style={styles.actionRow}>
             <TouchableOpacity
               onPress={() => {
-                applyOutlierTreatment(selectedColumn!, 'iqr', 'clip');
+                if (selectedColumn) applyOutlierTreatment(selectedColumn, 'iqr', 'clip');
                 setActiveTool(null);
               }}
               style={[styles.actionOptionBtn, { backgroundColor: colors.surfaceSecondary }]}
@@ -139,7 +265,7 @@ export const CleaningToolbar: React.FC = () => {
 
             <TouchableOpacity
               onPress={() => {
-                applyOutlierTreatment(selectedColumn!, 'iqr', 'median');
+                if (selectedColumn) applyOutlierTreatment(selectedColumn, 'iqr', 'median');
                 setActiveTool(null);
               }}
               style={[styles.actionOptionBtn, { backgroundColor: colors.surfaceSecondary }]}
@@ -149,7 +275,7 @@ export const CleaningToolbar: React.FC = () => {
 
             <TouchableOpacity
               onPress={() => {
-                applyOutlierTreatment(selectedColumn!, 'zscore', 'clip');
+                if (selectedColumn) applyOutlierTreatment(selectedColumn, 'zscore', 'clip');
                 setActiveTool(null);
               }}
               style={[styles.actionOptionBtn, { backgroundColor: colors.surfaceSecondary }]}
@@ -159,7 +285,7 @@ export const CleaningToolbar: React.FC = () => {
 
             <TouchableOpacity
               onPress={() => {
-                applyOutlierTreatment(selectedColumn!, 'iqr', 'remove');
+                if (selectedColumn) applyOutlierTreatment(selectedColumn, 'iqr', 'remove');
                 setActiveTool(null);
               }}
               style={[styles.actionOptionBtn, { backgroundColor: colors.surfaceSecondary }]}
@@ -170,56 +296,86 @@ export const CleaningToolbar: React.FC = () => {
         </View>
       )}
 
-      {activeTool === 'impute' && selectedColumn && (
+      {activeTool === 'impute' && (
         <View style={[styles.actionPanel, { backgroundColor: colors.surfaceHighlight }]}>
-          <Text style={[styles.actionPrompt, { color: colors.textPrimary }]}>
-            Estrategia de Imputación para [{selectedColumn}]:
-          </Text>
-          <View style={styles.actionRow}>
-            {isNumeric && (
-              <>
-                <TouchableOpacity
-                  onPress={() => {
-                    applyImputation(selectedColumn, 'median');
-                    setActiveTool(null);
-                  }}
-                  style={[styles.actionOptionBtn, { backgroundColor: colors.surfaceSecondary }]}
-                >
-                  <Text style={[styles.actionOptionText, { color: colors.confidenceHigh }]}>Rellenar con Mediana</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => {
-                    applyImputation(selectedColumn, 'mean');
-                    setActiveTool(null);
-                  }}
-                  style={[styles.actionOptionBtn, { backgroundColor: colors.surfaceSecondary }]}
-                >
-                  <Text style={[styles.actionOptionText, { color: colors.accentPrimary }]}>Rellenar con Media (μ)</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => {
-                    applyImputation(selectedColumn, 'zero');
-                    setActiveTool(null);
-                  }}
-                  style={[styles.actionOptionBtn, { backgroundColor: colors.surfaceSecondary }]}
-                >
-                  <Text style={[styles.actionOptionText, { color: colors.textPrimary }]}>Rellenar con Cero (0)</Text>
-                </TouchableOpacity>
-              </>
-            )}
-
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <Text style={[styles.actionPrompt, { color: colors.textPrimary, marginBottom: 0 }]}>
+              Saneamiento de Valores Nulos / Vacíos:
+            </Text>
             <TouchableOpacity
-              onPress={() => {
-                applyImputation(selectedColumn, 'ffill');
-                setActiveTool(null);
-              }}
-              style={[styles.actionOptionBtn, { backgroundColor: colors.surfaceSecondary }]}
+              onPress={handleBatchAutoImpute}
+              style={[styles.actionOptionBtn, { backgroundColor: colors.confidenceHigh, borderColor: colors.confidenceHigh }]}
             >
-              <Text style={[styles.actionOptionText, { color: colors.confidenceHeuristic }]}>Interpolación (FFill)</Text>
+              <Text style={[styles.actionOptionText, { color: '#FFFFFF' }]}>
+                Auto-Imputar Todos los Nulos (Lote Completo)
+              </Text>
             </TouchableOpacity>
           </View>
+
+          {/* Selector de columna para imputación individual */}
+          <Text style={[styles.chipsLabel, { color: colors.textMuted }]}>
+            O seleccione columna individual para aplicar estrategia manual:
+          </Text>
+          <View style={styles.columnChipsContainer}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row', marginVertical: 4 }}>
+              {columns.map(col => {
+                const p = columnProfiles[col];
+                const nulls = p?.nullCount ?? 0;
+                const isColSelected = col === selectedColumn;
+                return (
+                  <TouchableOpacity
+                    key={col}
+                    onPress={() => selectColumn(col)}
+                    style={[
+                      styles.colChip,
+                      { backgroundColor: isColSelected ? colors.accentPrimary : colors.surfaceSecondary, borderColor: colors.surfaceBorder },
+                      nulls > 0 && !isColSelected && { borderColor: colors.alertCritical, borderWidth: 1.5 }
+                    ]}
+                  >
+                    <Text style={[styles.colChipText, { color: isColSelected ? '#FFFFFF' : colors.textPrimary }]}>
+                      {col} {nulls > 0 ? `[${nulls} vacíos]` : ''}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {selectedColumn && (
+            <View style={styles.actionRow}>
+              {isNumeric && (
+                <>
+                  <TouchableOpacity
+                    onPress={() => handleSingleImpute('median')}
+                    style={[styles.actionOptionBtn, { backgroundColor: colors.surfaceSecondary }]}
+                  >
+                    <Text style={[styles.actionOptionText, { color: colors.confidenceHigh }]}>Rellenar con Mediana</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => handleSingleImpute('mean')}
+                    style={[styles.actionOptionBtn, { backgroundColor: colors.surfaceSecondary }]}
+                  >
+                    <Text style={[styles.actionOptionText, { color: colors.accentPrimary }]}>Rellenar con Media (μ)</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => handleSingleImpute('zero')}
+                    style={[styles.actionOptionBtn, { backgroundColor: colors.surfaceSecondary }]}
+                  >
+                    <Text style={[styles.actionOptionText, { color: colors.textPrimary }]}>Rellenar con Cero (0)</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+
+              <TouchableOpacity
+                onPress={() => handleSingleImpute('ffill')}
+                style={[styles.actionOptionBtn, { backgroundColor: colors.surfaceSecondary }]}
+              >
+                <Text style={[styles.actionOptionText, { color: colors.confidenceHeuristic }]}>Interpolación (FFill)</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       )}
 
@@ -284,22 +440,22 @@ export const CleaningToolbar: React.FC = () => {
               style={[styles.inputField, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.textPrimary }]}
             />
             <TouchableOpacity
-              onPress={() => setDeriveFormula('margin')}
-              style={[styles.formulaBtn, deriveFormula === 'margin' && { backgroundColor: colors.accentPrimary }]}
-            >
-              <Text style={[styles.formulaText, { color: deriveFormula === 'margin' ? '#FFF' : colors.textPrimary }]}>Margen (P - C)</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
               onPress={() => setDeriveFormula('revenue')}
               style={[styles.formulaBtn, deriveFormula === 'revenue' && { backgroundColor: colors.accentPrimary }]}
             >
-              <Text style={[styles.formulaText, { color: deriveFormula === 'revenue' ? '#FFF' : colors.textPrimary }]}>Ingreso (Q * P)</Text>
+              <Text style={[styles.formulaText, { color: deriveFormula === 'revenue' ? '#FFF' : colors.textPrimary }]}>Subtotal (Q * P)</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setDeriveFormula('day_of_week')}
               style={[styles.formulaBtn, deriveFormula === 'day_of_week' && { backgroundColor: colors.accentPrimary }]}
             >
               <Text style={[styles.formulaText, { color: deriveFormula === 'day_of_week' ? '#FFF' : colors.textPrimary }]}>Día Semana</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setDeriveFormula('is_weekend')}
+              style={[styles.formulaBtn, deriveFormula === 'is_weekend' && { backgroundColor: colors.accentPrimary }]}
+            >
+              <Text style={[styles.formulaText, { color: deriveFormula === 'is_weekend' ? '#FFF' : colors.textPrimary }]}>Fin de Semana</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => {
@@ -358,22 +514,45 @@ const styles = StyleSheet.create({
   container: {
     borderWidth: 1,
     borderRadius: 8,
-    padding: 8,
+    padding: 10,
     marginBottom: 10,
   },
+  sidebarHeader: {
+    marginBottom: 8,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  sidebarTitle: {
+    fontSize: typography.fontSize.xs,
+    fontFamily: typography.fontFamilyMono,
+    fontWeight: typography.fontWeight.heavy,
+    letterSpacing: 0.6,
+  },
+  sidebarSubtitle: {
+    fontSize: 10,
+    fontFamily: typography.fontFamilyMono,
+    marginTop: 2,
+  },
+  sectionHeading: {
+    fontSize: 9,
+    fontFamily: typography.fontFamilyMono,
+    fontWeight: typography.fontWeight.bold,
+    letterSpacing: 0.8,
+    marginTop: 8,
+    marginBottom: 4,
+  },
   buttonsBar: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: 'column',
+    alignItems: 'stretch',
   },
   toolBtn: {
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderRadius: 6,
     borderWidth: 1,
-    marginRight: 6,
-    marginBottom: 4,
+    marginBottom: 5,
+    width: '100%',
   },
   toolBtnText: {
     fontSize: typography.fontSize.xs,
@@ -385,15 +564,18 @@ const styles = StyleSheet.create({
   },
   historyGroup: {
     flexDirection: 'row',
-    marginLeft: 'auto',
-    marginBottom: 4,
+    marginTop: 4,
+    width: '100%',
+    justifyContent: 'space-between',
   },
   historyBtn: {
+    flex: 1,
     paddingHorizontal: 8,
-    paddingVertical: 5,
+    paddingVertical: 6,
     borderRadius: 4,
     borderWidth: 1,
-    marginLeft: 4,
+    alignItems: 'center',
+    marginHorizontal: 2,
   },
   historyText: {
     fontSize: 11,
@@ -472,6 +654,26 @@ const styles = StyleSheet.create({
   },
   opText: {
     fontSize: typography.fontSize.xs,
+    fontFamily: typography.fontFamilyMono,
+    fontWeight: typography.fontWeight.bold,
+  },
+  columnChipsContainer: {
+    marginBottom: 6,
+  },
+  chipsLabel: {
+    fontSize: 11,
+    fontFamily: typography.fontFamilyMono,
+    marginBottom: 3,
+  },
+  colChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    borderWidth: 1,
+    marginRight: 6,
+  },
+  colChipText: {
+    fontSize: 11,
     fontFamily: typography.fontFamilyMono,
     fontWeight: typography.fontWeight.bold,
   },

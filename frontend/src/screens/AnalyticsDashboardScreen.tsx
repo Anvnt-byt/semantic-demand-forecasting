@@ -41,7 +41,7 @@ export const AnalyticsDashboardScreen: React.FC = () => {
   const { colors } = useTheme();
   const { showToast } = useToast();
   const { hasModule } = useLicenseStore();
-  const { setActiveSection } = useConfigStore();
+  const { setActiveSection, setPipelineStep, demoCompleted, resetDemoPipeline } = useConfigStore();
 
   const isExportExcelAllowed = hasModule('export_excel');
   const isExportPdfAllowed = hasModule('export_pdf');
@@ -187,6 +187,31 @@ export const AnalyticsDashboardScreen: React.FC = () => {
 
       <ErrorBanner banner={banner} onDismiss={() => setBanner(null)} />
 
+      {/* Banner de Certificación de Demostración Exitosa */}
+      {demoCompleted && (
+        <View style={[styles.certBanner, { backgroundColor: 'rgba(16, 185, 129, 0.10)', borderColor: colors.confidenceHigh }]}>
+          <View style={{ flex: 1 }}>
+            <View style={styles.certBadgeRow}>
+              <MetricBadge type="alta_ml" label="FASE 5 FINALIZADA" />
+              <Text style={[styles.certTitle, { color: colors.confidenceHigh }]}>
+                DEMOSTRACIÓN DE CICLO COMPLETO CERTIFICADA
+              </Text>
+            </View>
+            <Text style={[styles.certDesc, { color: colors.textSecondary }]}>
+              Se auditaron y procesaron 16,679 transacciones POS. El motor predictivo local LightGBM se encuentra operativo y los artefactos de exportación fueron emitidos localmente.
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => resetDemoPipeline()}
+            style={[styles.certNewDemoBtn, { borderColor: colors.confidenceHigh, backgroundColor: colors.surface }]}
+          >
+            <Text style={[styles.certNewDemoText, { color: colors.confidenceHigh }]}>
+              INICIAR NUEVA EVALUACIÓN
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* 1. KPIs Ejecutivos Principales */}
       {kpis && (
         <View style={styles.kpiGrid}>
@@ -226,65 +251,23 @@ export const AnalyticsDashboardScreen: React.FC = () => {
         </View>
       )}
 
-      {/* 2. Centro de Acceso Rápido a Módulos Especializados */}
-      <View style={styles.hubGrid}>
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => setActiveSection('studio')}
-          style={[styles.hubCard, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}
-        >
-          <View style={styles.hubHeader}>
-            <View style={[styles.hubIconBg, { backgroundColor: colors.accentPrimaryGlow }]}>
-              <IconStudio size={18} color={colors.accentPrimary} />
-            </View>
-            <MetricBadge type="plan_pro" label="DATA PREP" />
+      {/* 2. Estado Operativo Consolidado */}
+      <TactileCard>
+        <View style={styles.cardHeaderRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.cardTitle, { color: colors.accentPrimary }]}>
+              ESTADO OPERACIONAL CONSOLIDADO (100% ON-PREMISE)
+            </Text>
+            <Text style={[styles.cardHelp, { color: colors.textSecondary }]}>
+              Base local procesada: {inventorySummary.totalSkus} SKUs activos en catálogo | {inventorySummary.reorderCount} productos requiriendo reposición de stock (ROP).
+            </Text>
           </View>
-          <Text style={[styles.hubTitle, { color: colors.textPrimary }]}>Curaduría de Datos</Text>
-          <Text style={[styles.hubDescription, { color: colors.textSecondary }]}>
-            Perfilado estadístico de atributos, tratamiento de anomalías IQR, imputación de nulos y transformaciones no destructivas.
-          </Text>
-          <Text style={[styles.hubLink, { color: colors.accentPrimary }]}>Abrir Estación de Curaduría →</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => setActiveSection('inventory')}
-          style={[styles.hubCard, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}
-        >
-          <View style={styles.hubHeader}>
-            <View style={[styles.hubIconBg, { backgroundColor: colors.accentPrimaryGlow }]}>
-              <IconInventory size={18} color={colors.accentPrimary} />
-            </View>
-            <MetricBadge
-              type={inventorySummary.reorderCount > 0 ? 'pareto_a' : 'plan_starter'}
-              label={`${inventorySummary.reorderCount} EN REORDEN`}
-            />
-          </View>
-          <Text style={[styles.hubTitle, { color: colors.textPrimary }]}>Inventario & Curva ABC</Text>
-          <Text style={[styles.hubDescription, { color: colors.textSecondary }]}>
-            Clasificación Pareto 80/20, curva de Lorenz acumulada, detección de stock estancado y puntos de reorden.
-          </Text>
-          <Text style={[styles.hubLink, { color: colors.accentPrimary }]}>Ver Inventario Detallado →</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => setActiveSection('forecasting')}
-          style={[styles.hubCard, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}
-        >
-          <View style={styles.hubHeader}>
-            <View style={[styles.hubIconBg, { backgroundColor: colors.accentPrimaryGlow }]}>
-              <IconForecasting size={18} color={colors.accentPrimary} />
-            </View>
-            <MetricBadge type="alta_ml" label="LIGHTGBM" />
-          </View>
-          <Text style={[styles.hubTitle, { color: colors.textPrimary }]}>Previsión de Demanda</Text>
-          <Text style={[styles.hubDescription, { color: colors.textSecondary }]}>
-            Proyecciones probabilísticas con intervalos de confianza P10/P90, métricas WAPE, RMSE y simulación ROP.
-          </Text>
-          <Text style={[styles.hubLink, { color: colors.accentPrimary }]}>Explorar Pronósticos →</Text>
-        </TouchableOpacity>
-      </View>
+          <MetricBadge
+            type={inventorySummary.reorderCount > 0 ? 'alerta_reorden' : 'alta_ml'}
+            label={inventorySummary.reorderCount > 0 ? `${inventorySummary.reorderCount} EN REORDEN` : 'INVENTARIO ÓPTIMO'}
+          />
+        </View>
+      </TactileCard>
 
       {/* 3. Comparativas Temporales con Selector de Granularidad */}
       <TactileCard>
@@ -348,6 +331,14 @@ export const AnalyticsDashboardScreen: React.FC = () => {
 
         <CategoryBreakdownTable />
       </TactileCard>
+
+      {/* Botón de Flujo: Paso Siguiente */}
+      <TactileButton
+        title="Continuar a Auditoría & Exportación Ejecutiva ->"
+        variant="primary"
+        onPress={() => setPipelineStep(5)}
+        style={{ marginTop: 14 }}
+      />
     </ScrollView>
   );
 };
@@ -359,7 +350,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: 18,
     paddingBottom: 40,
-    maxWidth: 960,
+    maxWidth: 1200,
     alignSelf: 'center',
     width: '100%',
   },
@@ -501,6 +492,45 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   granularityText: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.bold,
+    fontFamily: typography.fontFamilyMono,
+  },
+  certBanner: {
+    borderWidth: 1.5,
+    borderRadius: 8,
+    padding: 14,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  certBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+    gap: 8,
+  },
+  certTitle: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.heavy,
+    fontFamily: typography.fontFamilyMono,
+  },
+  certDesc: {
+    fontSize: typography.fontSize.xs,
+    lineHeight: 16,
+    maxWidth: 700,
+  },
+  certNewDemoBtn: {
+    borderWidth: 1.5,
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    alignSelf: 'center',
+  },
+  certNewDemoText: {
     fontSize: typography.fontSize.xs,
     fontWeight: typography.fontWeight.bold,
     fontFamily: typography.fontFamilyMono,

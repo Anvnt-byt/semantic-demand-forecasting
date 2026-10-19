@@ -85,6 +85,8 @@ export const lightTheme: ThemeColors = {
 };
 
 export const typography = {
+  fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  fontFamilySans: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   fontFamilyMono: 'monospace',
   fontSize: {
     xs: 12,

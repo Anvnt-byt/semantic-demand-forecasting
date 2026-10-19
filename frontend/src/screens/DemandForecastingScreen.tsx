@@ -1,30 +1,61 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { typography } from '../theme/theme';
 import { TactileCard } from '../components/common/TactileCard';
+import { TactileButton } from '../components/common/TactileButton';
 import { MetricBadge } from '../components/common/MetricBadge';
 import { DemandForecastSvgChart } from '../components/charts/DemandForecastSvgChart';
 import { predictDemandApi } from '../api/endpoints/analyticsApi';
 import { PredictDemandResponse, ForecastPoint } from '../types/analytics.types';
 import { useConfigStore } from '../store/useConfigStore';
 
+const CATALOG_28_SKUS = [
+  { sku: 'SKU-BEV-01', name: 'Cerveza Six-Pack 355ml (Bebidas • Maduro LightGBM)' },
+  { sku: 'SKU-BEV-02', name: 'Refresco Cola 600ml (Bebidas • Maduro LightGBM)' },
+  { sku: 'SKU-BEV-03', name: 'Agua Purificada 1.5L (Bebidas • Maduro LightGBM)' },
+  { sku: 'SKU-BEV-04', name: 'Jugo Naranja 1L (Bebidas • Maduro LightGBM)' },
+  { sku: 'SKU-BEV-05', name: 'Bebida Energética Citrus 500ml (Bebidas • Maduro LightGBM)' },
+  { sku: 'SKU-LAC-01', name: 'Leche Entera 1L (Lácteos • Maduro LightGBM)' },
+  { sku: 'SKU-LAC-02', name: 'Yogurt Fresa 1kg (Lácteos • Maduro LightGBM)' },
+  { sku: 'SKU-LAC-03', name: 'Queso Panela 400g (Lácteos • Maduro LightGBM)' },
+  { sku: 'SKU-LAC-04', name: 'Mantequilla Sin Sal 90g (Lácteos • Maduro LightGBM)' },
+  { sku: 'SKU-ABA-01', name: 'Pan Blanco Rebanado 680g (Abarrotes • Maduro LightGBM)' },
+  { sku: 'SKU-ABA-02', name: 'Aceite Vegetal 900ml (Abarrotes • Maduro LightGBM)' },
+  { sku: 'SKU-ABA-03', name: 'Arroz Grano Largo 1kg (Abarrotes • Maduro LightGBM)' },
+  { sku: 'SKU-ABA-04', name: 'Frijol Negro 1kg (Abarrotes • Maduro LightGBM)' },
+  { sku: 'SKU-ABA-05', name: 'Azúcar Estándar 1kg (Abarrotes • Maduro LightGBM)' },
+  { sku: 'SKU-ABA-06', name: 'Café Soluble Clásico 200g (Abarrotes • Maduro LightGBM)' },
+  { sku: 'SKU-ABA-07', name: 'Atún en Agua 140g (Abarrotes • Maduro LightGBM)' },
+  { sku: 'SKU-ABA-08', name: 'Pasta Espagueti 200g (Abarrotes • Maduro LightGBM)' },
+  { sku: 'SKU-ABA-09', name: 'Galletas Avena & Miel 150g (Abarrotes • Heurístico EMA)' },
+  { sku: 'SKU-SNK-01', name: 'Papas Fritas Clásicas 170g (Snacks • Maduro LightGBM)' },
+  { sku: 'SKU-SNK-02', name: 'Tortillas de Maíz 1kg (Snacks • Maduro LightGBM)' },
+  { sku: 'SKU-SNK-03', name: 'Cacahuates Enchilados 100g (Snacks • Maduro LightGBM)' },
+  { sku: 'SKU-SNK-04', name: 'Galletas Rellenas Chocolate 120g (Snacks • Maduro LightGBM)' },
+  { sku: 'SKU-LIM-01', name: 'Detergente Líquido Multiusos 1L (Limpieza • Maduro LightGBM)' },
+  { sku: 'SKU-LIM-02', name: 'Cloro Blanqueador 1L (Limpieza • Maduro LightGBM)' },
+  { sku: 'SKU-LIM-03', name: 'Jabón Lavatrastes Limón 750ml (Limpieza • Maduro LightGBM)' },
+  { sku: 'SKU-PER-01', name: 'Shampoo Anticaspa 400ml (Cuidado Personal • Maduro LightGBM)' },
+  { sku: 'SKU-PER-02', name: 'Jabón de Tocador en Barra 150g (Cuidado Personal • Maduro LightGBM)' },
+  { sku: 'SKU-PER-03', name: 'Crema Dental Triple Acción 100ml (Cuidado Personal • Maduro LightGBM)' },
+];
+
 export const DemandForecastingScreen: React.FC = () => {
   const { colors } = useTheme();
-  const { useMocks } = useConfigStore();
+  const { useMocks, setPipelineStep } = useConfigStore();
 
   const [loading, setLoading] = useState(false);
   const [forecast, setForecast] = useState<PredictDemandResponse | null>(null);
   const [horizon, setHorizon] = useState<7 | 14 | 30>(14);
-  const [forceRetrain, setForceRetrain] = useState(false);
-  const [selectedSku, setSelectedSku] = useState('SKU-CERV-01');
+  const [selectedSku, setSelectedSku] = useState('SKU-BEV-01');
+  const [skuSearch, setSkuSearch] = useState('');
 
-  const availableSkus = [
-    { sku: 'SKU-CERV-01', name: 'Cerveza Six-Pack 355ml (Maduro - LightGBM)' },
-    { sku: 'SKU-LECHE-02', name: 'Leche Entera 1L (Maduro - LightGBM)' },
-    { sku: 'SKU-COLA-03', name: 'Refresco Cola 600ml (Maduro - LightGBM)' },
-    { sku: 'SKU-NUEVO-09', name: 'Galletas Chocolate (Nuevo - Heurístico EMA)' },
-  ];
+  const filteredSkus = CATALOG_28_SKUS.filter(
+    (item) =>
+      item.sku.toLowerCase().includes(skuSearch.toLowerCase()) ||
+      item.name.toLowerCase().includes(skuSearch.toLowerCase())
+  );
 
   useEffect(() => {
     runForecast();
@@ -35,7 +66,7 @@ export const DemandForecastingScreen: React.FC = () => {
     try {
       const res = await predictDemandApi({
         dias_a_futuro: horizon,
-        force_retrain: forceRetrain,
+        sku: selectedSku,
       });
       setForecast(res);
     } catch (err) {
@@ -69,9 +100,18 @@ export const DemandForecastingScreen: React.FC = () => {
 
       {/* Selector de Producto */}
       <TactileCard>
-        <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>SELECCIONAR PRODUCTO A PROYECTAR:</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
+          CATÁLOGO EMPRESARIAL (28 SKUS EN 6 DEPARTAMENTOS) • SELECCIONE PRODUCTO:
+        </Text>
+        <TextInput
+          value={skuSearch}
+          onChangeText={setSkuSearch}
+          placeholder="Filtrar por SKU o nombre (ej. Cerveza, Refresco, Leche, Pan, Aceite, Jabón)..."
+          placeholderTextColor={colors.textMuted}
+          style={[styles.skuSearchInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.textPrimary }]}
+        />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.skuScroll}>
-          {availableSkus.map(item => {
+          {filteredSkus.map(item => {
             const isSelected = item.sku === selectedSku;
             return (
               <TouchableOpacity
@@ -107,16 +147,6 @@ export const DemandForecastingScreen: React.FC = () => {
             ))}
           </View>
 
-          <TouchableOpacity
-            onPress={() => setForceRetrain(!forceRetrain)}
-            style={[styles.retrainToggle, { borderColor: colors.surfaceBorder }]}
-          >
-            <View style={[styles.checkbox, { borderColor: colors.accentPrimary, backgroundColor: forceRetrain ? colors.accentPrimary : 'transparent' }]}>
-              {forceRetrain && <Text style={styles.checkMark}>✓</Text>}
-            </View>
-            <Text style={[styles.retrainLabel, { color: colors.textSecondary }]}>Re-entrenar modelo</Text>
-          </TouchableOpacity>
-
           <TouchableOpacity onPress={runForecast} style={[styles.runBtn, { backgroundColor: colors.confidenceHigh }]}>
             <Text style={styles.runBtnText}>Calcular Proyección</Text>
           </TouchableOpacity>
@@ -136,12 +166,15 @@ export const DemandForecastingScreen: React.FC = () => {
               <View>
                 <Text style={[styles.chartTitle, { color: colors.textPrimary }]}>PROYECCIÓN TEMPORAL DIARIA ({selectedSku})</Text>
                 <Text style={[styles.chartHelp, { color: colors.textSecondary }]}>
-                  Línea central: Pronóstico esperado • Banda sombreada: Intervalo de confianza no negativo [p10 - p90]
+                  Verde: 14 días históricos reales • Cyan: Proyección LightGBM supervisada • Sombreado: Banda conformal [p10 - p90]
                 </Text>
               </View>
             </View>
 
-            <DemandForecastSvgChart data={forecast.serie_temporal} />
+            <DemandForecastSvgChart
+              data={forecast.serie_temporal}
+              historico={forecast.historico_reciente}
+            />
 
             {/* Panel de Métricas Diagnósticas para Analistas de Datos */}
             <View style={[styles.diagnosticsContainer, { borderTopColor: colors.surfaceBorder }]}>
@@ -201,6 +234,14 @@ export const DemandForecastingScreen: React.FC = () => {
           </View>
         ) : null}
       </TactileCard>
+
+      {/* Botón de Flujo: Paso Siguiente */}
+      <TactileButton
+        title="Continuar a Auditoría & Exportación Ejecutiva ->"
+        variant="primary"
+        onPress={() => setPipelineStep(5)}
+        style={{ marginTop: 14 }}
+      />
     </ScrollView>
   );
 };
@@ -212,9 +253,18 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     paddingBottom: 40,
-    maxWidth: 1040,
+    maxWidth: 1200,
     alignSelf: 'center',
     width: '100%',
+  },
+  skuSearchInput: {
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: typography.fontSize.xs,
+    fontFamily: typography.fontFamilyMono,
+    marginBottom: 8,
   },
   header: {
     marginBottom: 12,

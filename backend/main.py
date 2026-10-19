@@ -1,4 +1,5 @@
 import os
+import sys
 import shutil
 import logging
 import threading
@@ -14,7 +15,9 @@ from pipeline_semantico import procesar_csv_a_parquet
 from entrenar_modelo import generar_pronostico
 from database.connection import init_db
 from routers.ingestion_router import router as ingestion_router
+from routers.curation_router import router as curation_router
 from analytics.router import analytics_router, license_router
+from fastapi.staticfiles import StaticFiles
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
 CHUNK_SIZE_BYTES = 1024 * 1024  # 1 MB
@@ -78,6 +81,7 @@ app.add_middleware(
 )
 
 app.include_router(analytics_router)
+app.include_router(curation_router)
 app.include_router(license_router)
 
 def verify_api_key(api_key: str = Security(API_KEY_HEADER)):
@@ -92,3 +96,14 @@ def verify_api_key(api_key: str = Security(API_KEY_HEADER)):
 @app.get("/health")
 def health_check():
     return {"status": "healthy", "service": "pos-analytics-api"}
+
+# Montaje de Frontend React Native Web estático (Zero-Node.js para Desktop)
+possible_dist_paths = [
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")),
+    os.path.abspath(os.path.join(getattr(sys, "_MEIPASS", ""), "frontend", "dist")),
+    os.path.abspath(os.path.join(os.path.dirname(sys.executable), "frontend", "dist")),
+    os.path.abspath(os.path.join(os.path.dirname(sys.executable), "_internal", "frontend", "dist")),
+]
+FRONTEND_DIST = next((p for p in possible_dist_paths if os.path.exists(os.path.join(p, "index.html"))), None)
+if FRONTEND_DIST:
+    app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")

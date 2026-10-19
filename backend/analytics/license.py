@@ -8,7 +8,7 @@ from typing import List, Dict, Tuple, Optional
 from schemas.analytics import LicenseVerifyRequest, LicenseVerifyResponse
 
 # Clave secreta interna para firma de licencias offline (SaaS local sin telemetría)
-LICENSE_SECRET = os.getenv("LICENSE_SECRET", "techconnect-pos-secret-key-2026").encode()
+LICENSE_SECRET = os.getenv("LICENSE_SECRET", "posbuddy-secret-key-2026").encode()
 
 PLAN_FEATURES: Dict[str, List[str]] = {
     "starter": [
@@ -44,7 +44,7 @@ PLAN_FEATURES: Dict[str, List[str]] = {
 def verify_license(req: LicenseVerifyRequest) -> LicenseVerifyResponse:
     """
     Valida la clave de licencia SaaS.
-    Soporta formato comercial offline: TC-<PLAN>-<YYYYMMDD>-<SIGNATURE>
+    Soporta formato comercial offline: POS-<PLAN>-<YYYYMMDD>-<SIGNATURE>
     así como claves de prueba controladas para ambiente de desarrollo.
     """
     key = req.license_key.strip().upper()
@@ -52,6 +52,9 @@ def verify_license(req: LicenseVerifyRequest) -> LicenseVerifyResponse:
 
     # 1. Validación de claves demo / desarrollo
     demo_keys = {
+        "POS-STARTER-DEMO-2027": ("starter", datetime(2027, 12, 31, 23, 59, 59, tzinfo=timezone.utc), "Comercio Demo Starter"),
+        "POS-PRO-DEMO-2027": ("pro", datetime(2027, 12, 31, 23, 59, 59, tzinfo=timezone.utc), "Comercio Demo Pro"),
+        "POS-ENTERPRISE-DEMO-2027": ("enterprise", datetime(2027, 12, 31, 23, 59, 59, tzinfo=timezone.utc), "Corporativo Demo Enterprise"),
         "TC-STARTER-DEMO-2027": ("starter", datetime(2027, 12, 31, 23, 59, 59, tzinfo=timezone.utc), "Comercio Demo Starter"),
         "TC-PRO-DEMO-2027": ("pro", datetime(2027, 12, 31, 23, 59, 59, tzinfo=timezone.utc), "Comercio Demo Pro"),
         "TC-ENTERPRISE-DEMO-2027": ("enterprise", datetime(2027, 12, 31, 23, 59, 59, tzinfo=timezone.utc), "Corporativo Demo Enterprise")
@@ -69,8 +72,8 @@ def verify_license(req: LicenseVerifyRequest) -> LicenseVerifyResponse:
             features_habilitadas=PLAN_FEATURES[plan]
         )
 
-    # 2. Validación de formato criptográfico offline: TC-<PLAN>-<YYYYMMDD>-<HASH8>
-    match = re.match(r"^TC-(STARTER|PRO|ENTERPRISE)-(\d{8})-([A-F0-9]{8})$", key)
+    # 2. Validación de formato criptográfico offline: POS-<PLAN>-<YYYYMMDD>-<HASH8> o TC-...
+    match = re.match(r"^(?:POS|TC)-(STARTER|PRO|ENTERPRISE)-(\d{8})-([A-F0-9]{8})$", key)
     if not match:
         return LicenseVerifyResponse(
             valid=False,

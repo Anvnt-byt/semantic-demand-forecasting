@@ -83,12 +83,21 @@ def _forecast_ema_heuristic(
     desv_est = round(std_val, 2)
     cv = round(std_val / avg_daily, 2) if avg_daily > 0 else 0.0
 
-    # Backtest empírico sobre los últimos puntos de la serie para WAPE y RMSE
     tail_eval = df_sku['y'].tail(min(5, len(df_sku)))
     y_fitted = df_sku['y'].ewm(alpha=0.3).mean().tail(len(tail_eval))
     abs_diff = (tail_eval - y_fitted).abs()
     wape = round((float(abs_diff.sum()) / max(1.0, float(tail_eval.sum()))) * 100, 2)
     rmse = round(float(np.sqrt(((tail_eval - y_fitted) ** 2).mean())), 2)
+
+    historico_puntos = [
+        ForecastPoint(
+            ds=h_row['ds'].strftime('%Y-%m-%d'),
+            pronostico=round(float(h_row['y']), 2),
+            p10=round(float(h_row['y']), 2),
+            p90=round(float(h_row['y']), 2)
+        )
+        for _, h_row in df_sku.tail(14).iterrows()
+    ]
 
     return ProductForecastItem(
         sku=str(sku),
@@ -103,6 +112,7 @@ def _forecast_ema_heuristic(
         rmse=rmse,
         stock_seguridad_sugerido=stock_seguridad,
         punto_reorden_sugerido=punto_reorden,
+        historico_reciente=historico_puntos,
         predicciones=puntos
     )
 
@@ -141,8 +151,10 @@ def generate_demand_forecast(
         params = {"fecha_corte": fecha_corte}
         sku_filter = ""
         if sku_list:
-            sku_filter = " AND v.sku IN :skus"
-            params["skus"] = tuple(sku_list)
+            placeholders = [f":sku_{i}" for i in range(len(sku_list))]
+            sku_filter = f" AND v.sku IN ({', '.join(placeholders)})"
+            for i, sku_item in enumerate(sku_list):
+                params[f"sku_{i}"] = sku_item
 
         sql = f"""
         SELECT 
@@ -243,6 +255,16 @@ def generate_demand_forecast(
                     wape_val = round((float(np.sum(np.abs(y_act - y_est))) / max(1.0, float(np.sum(y_act)))) * 100, 2)
                     rmse_val = round(float(np.sqrt(np.mean((y_act - y_est) ** 2))), 2)
 
+                historico_puntos = [
+                    ForecastPoint(
+                        ds=pd.to_datetime(h_row['ds']).strftime('%Y-%m-%d'),
+                        pronostico=round(float(h_row['y']), 2),
+                        p10=round(float(h_row['y']), 2),
+                        p90=round(float(h_row['y']), 2)
+                    )
+                    for _, h_row in sku_hist.tail(14).iterrows()
+                ]
+
                 puntos_forecast = []
                 for _, row in group.iterrows():
                     val_pred = max(0.0, float(row[col_pred]))
@@ -272,6 +294,7 @@ def generate_demand_forecast(
                         rmse=rmse_val,
                         stock_seguridad_sugerido=stock_seguridad,
                         punto_reorden_sugerido=punto_reorden,
+                        historico_reciente=historico_puntos,
                         predicciones=puntos_forecast
                     )
                 )

@@ -4,6 +4,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { typography } from '../theme/theme';
 import { TactileCard } from '../components/common/TactileCard';
 import { ParetoTable } from '../components/tables/ParetoTable';
+import { LorenzCurveChart } from '../components/charts/LorenzCurveChart';
 import { getInventoryTurnoverApi } from '../api/endpoints/analyticsApi';
 import { InventoryItemPareto } from '../types/analytics.types';
 import { useConfigStore } from '../store/useConfigStore';
@@ -95,6 +96,19 @@ export const InventoryAnalyticsScreen: React.FC = () => {
         </View>
       )}
 
+      {/* Visualización Cuantitativa: Curva de Lorenz Acumulada */}
+      {items.length > 0 && (
+        <TactileCard>
+          <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
+            CURVA DE LORENZ & COEFICIENTE DE GINI (CONCENTRACIÓN DE FACTURACIÓN)
+          </Text>
+          <Text style={[styles.cardHelp, { color: colors.textMuted }]}>
+            Análisis econométrico de concentración del portafolio: % acumulado de catálogo vs. % acumulado de ingresos.
+          </Text>
+          <LorenzCurveChart items={items} />
+        </TactileCard>
+      )}
+
       {/* Buscador y Píldoras de Filtro */}
       <TactileCard>
         <View style={styles.filtersBar}>
@@ -156,7 +170,7 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     paddingBottom: 40,
-    maxWidth: 1040,
+    maxWidth: 1200,
     alignSelf: 'center',
     width: '100%',
   },
@@ -176,6 +190,17 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.xs,
     fontFamily: typography.fontFamilyMono,
     marginTop: 2,
+  },
+  cardTitle: {
+    fontSize: typography.fontSize.xs,
+    fontFamily: typography.fontFamilyMono,
+    fontWeight: typography.fontWeight.bold,
+    letterSpacing: 0.6,
+  },
+  cardHelp: {
+    fontSize: typography.fontSize.xs,
+    marginTop: 2,
+    marginBottom: 8,
   },
   refreshBtn: {
     paddingHorizontal: 12,

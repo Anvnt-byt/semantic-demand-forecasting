@@ -49,7 +49,7 @@ export interface SellerPerformance {
 
 export interface PredictDemandRequest {
   dias_a_futuro: number;
-  force_retrain: boolean;
+  sku?: string;
 }
 
 export interface ForecastPoint {
@@ -72,7 +72,25 @@ export interface PredictDemandResponse {
   nivel_confianza: ModelMaturityLevel;
   horizonte_dias: number;
   serie_temporal: ForecastPoint[];
+  historico_reciente?: ForecastPoint[];
   metricas_diagnosticas: DiagnosticMetrics;
   disclaimer: string;
   generado_el: string;
 }
+
+export type ExportAudiencePreset = 'executive' | 'data_science' | 'custom';
+
+export interface ExportReportConfig {
+  preset: ExportAudiencePreset;
+  incluirKpis: boolean;
+  incluirAbc: boolean;
+  incluirVendedores: boolean;
+  incluirProyeccion: boolean;
+  incluirDiagnostico: boolean;
+  incluirLinaje: boolean;
+  skuProyeccion?: string;
+  notasAnalista: string;
+  autorAnalista: string;
+  cargoAnalista: string;
+}
+

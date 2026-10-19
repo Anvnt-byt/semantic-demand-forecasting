@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import Svg, {
   Path,
   Line,
@@ -8,6 +8,7 @@ import Svg, {
   LinearGradient,
   Stop,
   Rect,
+  Text as SvgText,
 } from 'react-native-svg';
 import { ForecastPoint } from '../../types/analytics.types';
 import { useTheme } from '../../theme/ThemeContext';
@@ -15,20 +16,33 @@ import { typography } from '../../theme/theme';
 
 interface DemandForecastSvgChartProps {
   data: ForecastPoint[];
+  historico?: ForecastPoint[];
   height?: number;
+}
+
+interface CombinedPoint extends ForecastPoint {
+  isHistorical: boolean;
 }
 
 export const DemandForecastSvgChart: React.FC<DemandForecastSvgChartProps> = ({
   data,
-  height = 240,
+  historico = [],
+  height = 250,
 }) => {
   const { colors, isDark } = useTheme();
   const screenWidth = Dimensions.get('window').width;
-  // Responsive chart width
-  const chartWidth = Math.min(screenWidth - 48, 860);
+  const chartWidth = Math.min(screenWidth - 48, 920);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
-  if (!data || data.length === 0) {
+  const histClean = historico || [];
+  const predClean = data || [];
+
+  const combined: CombinedPoint[] = [
+    ...histClean.map((h) => ({ ...h, isHistorical: true })),
+    ...predClean.map((p) => ({ ...p, isHistorical: false })),
+  ];
+
+  if (combined.length === 0) {
     return (
       <View style={[styles.emptyContainer, { height }]}>
         <Text style={{ color: colors.textMuted }}>Sin datos de proyección disponibles</Text>
@@ -39,70 +53,89 @@ export const DemandForecastSvgChart: React.FC<DemandForecastSvgChartProps> = ({
   const paddingLeft = 45;
   const paddingRight = 20;
   const paddingTop = 25;
-  const paddingBottom = 35;
+  const paddingBottom = 40;
 
   const innerWidth = chartWidth - paddingLeft - paddingRight;
   const innerHeight = height - paddingTop - paddingBottom;
 
-  // Compute min and max across all series
+  // Min / Max across both historical and predictions
   let minY = Infinity;
   let maxY = -Infinity;
-  data.forEach((d) => {
+  combined.forEach((d) => {
     if (d.limite_inferior_p10 < minY) minY = d.limite_inferior_p10;
     if (d.limite_superior_p90 > maxY) maxY = d.limite_superior_p90;
     if (d.prediccion < minY) minY = d.prediccion;
     if (d.prediccion > maxY) maxY = d.prediccion;
   });
 
-  // Add 10% breathing room on Y axis
   const yBuffer = (maxY - minY) * 0.1 || 10;
   const safeMinY = Math.max(0, Math.floor(minY - yBuffer));
   const safeMaxY = Math.ceil(maxY + yBuffer);
   const yRange = safeMaxY - safeMinY || 1;
 
+  const totalPoints = combined.length;
   const getX = (index: number) => {
-    if (data.length <= 1) return paddingLeft + innerWidth / 2;
-    return paddingLeft + (index / (data.length - 1)) * innerWidth;
+    if (totalPoints <= 1) return paddingLeft + innerWidth / 2;
+    return paddingLeft + (index / (totalPoints - 1)) * innerWidth;
   };
 
   const getY = (val: number) => {
     return paddingTop + innerHeight - ((val - safeMinY) / yRange) * innerHeight;
   };
 
-  // Build uncertainty band polygon (P10 to P90)
-  // Forward along P90, backward along P10
-  let areaPath = '';
-  data.forEach((d, i) => {
-    const x = getX(i);
-    const yP90 = getY(d.limite_superior_p90);
-    if (i === 0) {
-      areaPath += `M ${x} ${yP90}`;
-    } else {
-      areaPath += ` L ${x} ${yP90}`;
+  const histCount = histClean.length;
+
+  // Path histórico (Línea esmeralda)
+  let histPath = '';
+  if (histCount > 0) {
+    for (let i = 0; i < histCount; i++) {
+      const x = getX(i);
+      const y = getY(combined[i].prediccion);
+      if (i === 0) histPath += `M ${x} ${y}`;
+      else histPath += ` L ${x} ${y}`;
     }
-  });
-  for (let i = data.length - 1; i >= 0; i--) {
-    const x = getX(i);
-    const yP10 = getY(data[i].limite_inferior_p10);
-    areaPath += ` L ${x} ${yP10}`;
   }
-  areaPath += ' Z';
 
-  // Build prediction median line path
-  let linePath = '';
-  data.forEach((d, i) => {
-    const x = getX(i);
-    const y = getY(d.prediccion);
-    if (i === 0) {
-      linePath += `M ${x} ${y}`;
-    } else {
-      linePath += ` L ${x} ${y}`;
+  // Path predicción (Línea cyan conectada desde el último punto histórico si existe)
+  let predPath = '';
+  if (predClean.length > 0) {
+    const startIndex = histCount > 0 ? histCount - 1 : 0;
+    for (let i = startIndex; i < totalPoints; i++) {
+      const x = getX(i);
+      const y = getY(combined[i].prediccion);
+      if (i === startIndex) predPath += `M ${x} ${y}`;
+      else predPath += ` L ${x} ${y}`;
     }
-  });
+  }
 
-  const selectedPoint = selectedIndex !== null ? data[selectedIndex] : data[data.length - 1];
+  // Banda de incertidumbre [P10, P90] para la parte predictiva
+  let areaPath = '';
+  if (predClean.length > 0) {
+    for (let i = histCount; i < totalPoints; i++) {
+      const x = getX(i);
+      const yP90 = getY(combined[i].limite_superior_p90);
+      if (i === histCount) areaPath += `M ${x} ${yP90}`;
+      else areaPath += ` L ${x} ${yP90}`;
+    }
+    for (let i = totalPoints - 1; i >= histCount; i--) {
+      const x = getX(i);
+      const yP10 = getY(combined[i].limite_inferior_p10);
+      areaPath += ` L ${x} ${yP10}`;
+    }
+    areaPath += ' Z';
+  }
 
-  // Grid steps (4 horizontal lines)
+  // Separador vertical "HOY"
+  const sepX = histCount > 0 && predClean.length > 0
+    ? (getX(histCount - 1) + getX(histCount)) / 2
+    : null;
+
+  // Punto seleccionado para tooltip (por defecto el primer punto predictivo)
+  const defaultIdx = histCount < totalPoints ? histCount : totalPoints - 1;
+  const activeIdx = selectedIndex !== null ? selectedIndex : defaultIdx;
+  const selectedPoint = combined[activeIdx] || combined[combined.length - 1];
+
+  // Cuadrícula horizontal
   const gridSteps = 4;
   const gridLines = Array.from({ length: gridSteps + 1 }).map((_, idx) => {
     const val = safeMinY + (yRange / gridSteps) * idx;
@@ -112,7 +145,7 @@ export const DemandForecastSvgChart: React.FC<DemandForecastSvgChartProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Dynamic Scrubber Tooltip */}
+      {/* Tooltip Dinámico */}
       {selectedPoint && (
         <View
           style={[
@@ -124,28 +157,55 @@ export const DemandForecastSvgChart: React.FC<DemandForecastSvgChartProps> = ({
           ]}
         >
           <View style={styles.tooltipItem}>
+            <Text style={[styles.tooltipLabel, { color: colors.textMuted }]}>
+              {selectedPoint.isHistorical ? 'TIPO' : 'MODELO'}
+            </Text>
+            <Text
+              style={[
+                styles.tooltipValue,
+                { color: selectedPoint.isHistorical ? colors.confidenceHigh : colors.accentPrimary },
+              ]}
+            >
+              {selectedPoint.isHistorical ? 'HISTÓRICO REAL' : 'LIGHTGBM ML'}
+            </Text>
+          </View>
+
+          <View style={styles.tooltipItem}>
             <Text style={[styles.tooltipLabel, { color: colors.textMuted }]}>FECHA</Text>
             <Text style={[styles.tooltipValue, { color: colors.textPrimary }]}>
               {selectedPoint.fecha}
             </Text>
           </View>
+
           <View style={styles.tooltipItem}>
-            <Text style={[styles.tooltipLabel, { color: colors.accentPrimary }]}>
-              PROYECCIÓN (MEDIANA)
+            <Text
+              style={[
+                styles.tooltipLabel,
+                { color: selectedPoint.isHistorical ? colors.confidenceHigh : colors.accentPrimary },
+              ]}
+            >
+              {selectedPoint.isHistorical ? 'VENTA REGISTRADA' : 'DEMANDA ESPERADA'}
             </Text>
-            <Text style={[styles.tooltipValue, { color: colors.accentPrimary }]}>
+            <Text
+              style={[
+                styles.tooltipValue,
+                { color: selectedPoint.isHistorical ? colors.confidenceHigh : colors.accentPrimary },
+              ]}
+            >
               {selectedPoint.prediccion.toFixed(0)} un.
             </Text>
           </View>
-          <View style={styles.tooltipItem}>
-            <Text style={[styles.tooltipLabel, { color: colors.confidenceHigh }]}>
-              BANDA INCERTIDUMBRE (P10 - P90)
-            </Text>
-            <Text style={[styles.tooltipValue, { color: colors.textSecondary }]}>
-              {selectedPoint.limite_inferior_p10.toFixed(0)} -{' '}
-              {selectedPoint.limite_superior_p90.toFixed(0)} un.
-            </Text>
-          </View>
+
+          {!selectedPoint.isHistorical && (
+            <View style={styles.tooltipItem}>
+              <Text style={[styles.tooltipLabel, { color: colors.confidenceHeuristic }]}>
+                INTERVALO CONFORMAL (P10 - P90)
+              </Text>
+              <Text style={[styles.tooltipValue, { color: colors.textSecondary }]}>
+                {selectedPoint.limite_inferior_p10.toFixed(0)} - {selectedPoint.limite_superior_p90.toFixed(0)} un.
+              </Text>
+            </View>
+          )}
         </View>
       )}
 
@@ -158,7 +218,7 @@ export const DemandForecastSvgChart: React.FC<DemandForecastSvgChartProps> = ({
           </LinearGradient>
         </Defs>
 
-        {/* Horizontal grid lines and Y labels */}
+        {/* Líneas horizontales de cuadrícula */}
         {gridLines.map((gl, i) => (
           <React.Fragment key={`grid-${i}`}>
             <Line
@@ -170,43 +230,93 @@ export const DemandForecastSvgChart: React.FC<DemandForecastSvgChartProps> = ({
               strokeDasharray="4 4"
               strokeWidth={1}
             />
+            <SvgText
+              x={paddingLeft - 8}
+              y={gl.yPos + 4}
+              fill={colors.textMuted}
+              fontSize={10}
+              textAnchor="end"
+              fontFamily={typography.fontFamilyMono}
+            >
+              {gl.val}
+            </SvgText>
           </React.Fragment>
         ))}
 
-        {/* Shaded P10-P90 Uncertainty Area */}
-        <Path d={areaPath} fill="url(#uncertaintyGradient)" />
+        {/* Banda de incertidumbre */}
+        {areaPath ? <Path d={areaPath} fill="url(#uncertaintyGradient)" /> : null}
 
-        {/* Median Prediction Line */}
-        <Path
-          d={linePath}
-          fill="none"
-          stroke={colors.chartPredictionLine}
-          strokeWidth={3}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        {/* Separador vertical "HOY" */}
+        {sepX !== null && (
+          <React.Fragment>
+            <Line
+              x1={sepX}
+              y1={paddingTop - 10}
+              x2={sepX}
+              y2={paddingTop + innerHeight}
+              stroke={colors.textMuted}
+              strokeDasharray="3 3"
+              strokeWidth={1.2}
+            />
+            <SvgText
+              x={sepX}
+              y={paddingTop - 12}
+              fill={colors.textMuted}
+              fontSize={9}
+              textAnchor="middle"
+              fontFamily={typography.fontFamilyMono}
+              fontWeight="bold"
+            >
+              {'HOY ->'}
+            </SvgText>
+          </React.Fragment>
+        )}
 
-        {/* Data points & Interactive trigger targets */}
-        {data.map((d, i) => {
+        {/* Línea histórica real (Esmeralda) */}
+        {histPath ? (
+          <Path
+            d={histPath}
+            fill="none"
+            stroke={colors.confidenceHigh}
+            strokeWidth={2.8}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ) : null}
+
+        {/* Línea de predicción (Cyan) */}
+        {predPath ? (
+          <Path
+            d={predPath}
+            fill="none"
+            stroke={colors.chartPredictionLine}
+            strokeWidth={3}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ) : null}
+
+        {/* Puntos interactivos y scrubbing */}
+        {combined.map((d, i) => {
           const cx = getX(i);
           const cy = getY(d.prediccion);
-          const isSelected = selectedIndex === i;
+          const isSelected = activeIdx === i;
+          const ptColor = d.isHistorical ? colors.confidenceHigh : colors.chartPredictionLine;
 
           return (
-            <React.Fragment key={`point-${i}`}>
+            <React.Fragment key={`pt-${i}`}>
               <Circle
                 cx={cx}
                 cy={cy}
                 r={isSelected ? 6 : 3.5}
-                fill={isSelected ? colors.textPrimary : colors.chartPredictionLine}
+                fill={isSelected ? colors.textPrimary : ptColor}
                 stroke={colors.surface}
                 strokeWidth={2}
               />
-              {/* Invisible touchable bar for scrubbing */}
               <Rect
-                x={cx - innerWidth / (data.length * 2)}
+                x={cx - innerWidth / (totalPoints * 2)}
                 y={paddingTop}
-                width={innerWidth / data.length}
+                width={innerWidth / totalPoints}
                 height={innerHeight}
                 fill="transparent"
                 onPress={() => setSelectedIndex(i)}
@@ -216,16 +326,44 @@ export const DemandForecastSvgChart: React.FC<DemandForecastSvgChartProps> = ({
         })}
       </Svg>
 
-      {/* X Axis Legend */}
+      {/* Leyenda */}
+      <View style={styles.legendContainer}>
+        {histCount > 0 && (
+          <View style={styles.legendItem}>
+            <View style={[styles.legendIndicator, { backgroundColor: colors.confidenceHigh }]} />
+            <Text style={[styles.legendLabel, { color: colors.textSecondary }]}>
+              Ventas Reales ({histCount}d)
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.legendItem}>
+          <View style={[styles.legendIndicator, { backgroundColor: colors.chartPredictionLine }]} />
+          <Text style={[styles.legendLabel, { color: colors.textSecondary }]}>
+            Demanda Proyectada LightGBM
+          </Text>
+        </View>
+
+        <View style={styles.legendItem}>
+          <View style={[styles.legendAreaIndicator, { backgroundColor: colors.accentPrimaryGlow }]} />
+          <Text style={[styles.legendLabel, { color: colors.textSecondary }]}>
+            Banda Incertidumbre [P10, P90]
+          </Text>
+        </View>
+      </View>
+
+      {/* Etiquetas X */}
       <View style={[styles.xAxisRow, { paddingLeft, paddingRight }]}>
         <Text style={[styles.xLegendText, { color: colors.textMuted }]}>
-          {data[0]?.fecha.slice(5)}
+          {combined[0]?.fecha}
         </Text>
+        {sepX !== null && (
+          <Text style={[styles.xLegendText, { color: colors.accentPrimary, fontWeight: 'bold' }]}>
+            {combined[histCount]?.fecha}
+          </Text>
+        )}
         <Text style={[styles.xLegendText, { color: colors.textMuted }]}>
-          {data[Math.floor(data.length / 2)]?.fecha.slice(5)}
-        </Text>
-        <Text style={[styles.xLegendText, { color: colors.textMuted }]}>
-          {data[data.length - 1]?.fecha.slice(5)}
+          {combined[combined.length - 1]?.fecha}
         </Text>
       </View>
     </View>
@@ -234,7 +372,7 @@ export const DemandForecastSvgChart: React.FC<DemandForecastSvgChartProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 12,
+    marginVertical: 10,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -253,7 +391,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   tooltipLabel: {
-    fontSize: typography.fontSize.xs,
+    fontSize: 10,
     fontWeight: typography.fontWeight.bold,
     letterSpacing: 0.5,
     fontFamily: typography.fontFamilyMono,
@@ -263,13 +401,40 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.bold,
     fontFamily: typography.fontFamilyMono,
   },
+  legendContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: 16,
+    marginTop: 8,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  legendIndicator: {
+    width: 14,
+    height: 3,
+    borderRadius: 2,
+    marginRight: 6,
+  },
+  legendAreaIndicator: {
+    width: 14,
+    height: 10,
+    borderRadius: 2,
+    marginRight: 6,
+  },
+  legendLabel: {
+    fontSize: 11,
+    fontFamily: typography.fontFamilyMono,
+  },
   xAxisRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 4,
+    marginTop: 6,
   },
   xLegendText: {
-    fontSize: typography.fontSize.xs,
+    fontSize: 10,
     fontFamily: typography.fontFamilyMono,
   },
 });

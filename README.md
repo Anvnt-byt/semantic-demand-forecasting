@@ -1,4 +1,4 @@
-# TechConnect POS Analytics & Demand Forecasting Engine
+# POSBuddy Analytics & Demand Forecasting Engine
 
 Solución local (*on-premise*) de analítica comercial, control de inventario y pronóstico de demanda basada en aprendizaje automático para Puntos de Venta (POS). Diseñada para operar de forma modular, ligera y 100% local, garantizando la privacidad absoluta de los datos contables sin depender de servicios en la nube, contenedores Docker pesados ni telemetría externa.
 

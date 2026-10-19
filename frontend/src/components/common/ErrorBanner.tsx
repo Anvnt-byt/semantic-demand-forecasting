@@ -88,11 +88,11 @@ export const ErrorBanner: React.FC<ErrorBannerProps> = ({ banner, onDismiss }) =
       <View style={styles.textContainer}>
         <Text style={[styles.title, { color: scheme.text }]}>
           {isRateLimit
-            ? '⚡ LÍMITE DE TASA HTTP 429'
+            ? '[429] LIMITE DE TASA HTTP'
             : isForbidden
-            ? '🔒 ACCESO DENEGADO HTTP 403'
+            ? '[403] ACCESO DENEGADO HTTP'
             : isNetwork
-            ? '📡 ERROR DE RED LAN'
+            ? '[RED] ERROR DE CONEXION LAN'
             : 'ADVERTENCIA'}
         </Text>
         <Text style={[styles.message, { color: colors.textPrimary }]}>
@@ -103,7 +103,7 @@ export const ErrorBanner: React.FC<ErrorBannerProps> = ({ banner, onDismiss }) =
       </View>
       {onDismiss && (
         <TouchableOpacity onPress={onDismiss} style={styles.dismissButton}>
-          <Text style={[styles.dismissText, { color: colors.textMuted }]}>✕</Text>
+          <Text style={[styles.dismissText, { color: colors.textMuted }]}>X</Text>
         </TouchableOpacity>
       )}
     </View>

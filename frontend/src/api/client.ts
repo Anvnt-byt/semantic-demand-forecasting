@@ -77,10 +77,17 @@ export const createApiClient = (): AxiosInstance => {
 
 export const apiClient = createApiClient();
 
-export const pingBackend = async (): Promise<{ ok: boolean; latencyMs: number; message: string }> => {
+export const pingBackend = async (
+  customHost?: string,
+  customPort?: number
+): Promise<{ ok: boolean; latencyMs: number; message: string }> => {
   const start = Date.now();
+  const host = customHost ? customHost.trim().replace(/\/+$/, '') : useConfigStore.getState().backendHost;
+  const port = customPort ?? useConfigStore.getState().backendPort;
+  const testUrl = `${host}:${port}/health`;
+
   try {
-    const res = await apiClient.get('/health', { timeout: 3500 });
+    const res = await axios.get(testUrl, { timeout: 3000 });
     const latencyMs = Date.now() - start;
     useConfigStore.getState().updateOnlineStatus(true, latencyMs);
     return {
@@ -88,13 +95,30 @@ export const pingBackend = async (): Promise<{ ok: boolean; latencyMs: number; m
       latencyMs,
       message: `Conectado a FastAPI (${latencyMs}ms)`,
     };
-  } catch {
+  } catch (err) {
+    // Si falló con localhost, intentar fallback automático a 127.0.0.1 (evita conflicto IPv6 de Windows)
+    if (host.includes('localhost')) {
+      try {
+        const fallbackUrl = testUrl.replace('localhost', '127.0.0.1');
+        const res = await axios.get(fallbackUrl, { timeout: 2500 });
+        const latencyMs = Date.now() - start;
+        useConfigStore.getState().updateOnlineStatus(true, latencyMs);
+        return {
+          ok: true,
+          latencyMs,
+          message: `Conectado a FastAPI en 127.0.0.1 (${latencyMs}ms)`,
+        };
+      } catch {
+        // Continuar a reporte de error
+      }
+    }
+
     const latencyMs = Date.now() - start;
     useConfigStore.getState().updateOnlineStatus(false);
     return {
       ok: false,
       latencyMs,
-      message: 'No responde backend local.',
+      message: `No responde backend en ${host}:${port}`,
     };
   }
 };
