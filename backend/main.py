@@ -11,6 +11,11 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
+from pipeline_semantico import procesar_csv_a_parquet
+from entrenar_modelo import generar_pronostico
+from database.connection import init_db
+from routers.ingestion_router import router as ingestion_router
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
 CHUNK_SIZE_BYTES = 1024 * 1024  # 1 MB
@@ -30,8 +35,8 @@ def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
 
 app = FastAPI(
     title="Demand Forecasting API",
-    description="API RESTful para previsión de demanda.",
-    version="1.1.0",
+    description="API RESTful para previsión de demanda, ingesta de datos y auditoría.",
+    version="1.2.0",
     docs_url=None if IS_PRODUCTION else "/docs",
     redoc_url=None if IS_PRODUCTION else "/redoc",
     openapi_url=None if IS_PRODUCTION else "/openapi.json"
@@ -39,6 +44,17 @@ app = FastAPI(
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, custom_rate_limit_handler)
+
+@app.on_event("startup")
+def on_startup():
+    try:
+        init_db()
+        logging.info("Esquemas de base de datos relacional inicializados.")
+    except Exception as e:
+        logging.warning("Base de datos interna PostgreSQL no disponible en startup: %s", e)
+
+app.include_router(ingestion_router)
+
 allowed_origins_env = os.getenv("ALLOWED_ORIGINS")
 if allowed_origins_env:
     origins = [o.strip() for o in allowed_origins_env.split(",") if o.strip()]
