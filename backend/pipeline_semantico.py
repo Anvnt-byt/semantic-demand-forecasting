@@ -1,10 +1,10 @@
-import polars as pl
-from pydantic import BaseModel, Field
-from typing import List
-import instructor
-from openai import OpenAI
 import os
 import gc
+import hashlib
+from typing import List
+import polars as pl
+from pydantic import BaseModel, Field
+from ingestion.normalizer import clean_header, VENTAS_SYNONYMS
 
 pl.Config.set_tbl_rows(8)
 os.environ["POLARS_MAX_THREADS"] = "6"
@@ -26,21 +26,99 @@ class ColumnaMapeada(BaseModel):
 class ResultadoMapeo(BaseModel):
     columnas: List[ColumnaMapeada]
 
-def sanitizar_texto(texto: str, max_len: int = 50) -> str:
-    if not isinstance(texto, str):
-        texto = str(texto)
-    limpio = "".join(ch for ch in texto if ch.isprintable() and ch not in "\r\n\t`'\"")
-    return limpio[:max_len]
+LOCATION_KEYWORDS = ["tienda", "store", "sucursal", "almacen", "branch", "location", "pos_id"]
+IGNORED_KEYWORDS = ["hash", "id_linea", "uuid", "row_id", "index", "id_transaccion"]
 
-def extraer_perfil(df: pl.DataFrame) -> str:
-    perfil = []
+def clasificar_columnas_determinista(df: pl.DataFrame) -> ResultadoMapeo:
+    """Clasifica ontológicamente las columnas para pronóstico de demanda de forma determinista (CERO LLM)."""
+    columnas = []
+    has_timestamp = False
+    has_target = False
+    has_item = False
+    has_location = False
+
     for col in df.columns:
-        col_sanitizada = sanitizar_texto(col, max_len=60)
-        tipo = str(df.schema[col])
-        valores_raw = df[col].drop_nulls().head(5).to_list()
-        ejemplos = [sanitizar_texto(v, max_len=35) for v in valores_raw]
-        perfil.append(f"Columna: '{col_sanitizada}' | Tipo nativo: {tipo} | Ejemplos: {ejemplos}")
-    return "\n".join(perfil)
+        col_clean = clean_header(col)
+        schema_type = str(df.schema[col]).lower()
+        is_string = "str" in schema_type or "string" in schema_type
+
+        # 1. TIMESTAMP (fechas)
+        if not has_timestamp and any(syn in col_clean for syn in VENTAS_SYNONYMS["fecha"]):
+            columnas.append(ColumnaMapeada(
+                nombre_original=col,
+                tipo_inferido="TIMESTAMP",
+                razonamiento="Detectado como campo temporal por reglas deterministas.",
+                confianza=1.0
+            ))
+            has_timestamp = True
+            continue
+
+        # 2. TARGET_METRIC (cantidad/volumen numérico a predecir)
+        if not has_target and any(syn == col_clean or col_clean.startswith(syn) for syn in VENTAS_SYNONYMS["cantidad"]):
+            columnas.append(ColumnaMapeada(
+                nombre_original=col,
+                tipo_inferido="TARGET_METRIC",
+                razonamiento="Detectado como volumen de venta/demanda numérico.",
+                confianza=1.0
+            ))
+            has_target = True
+            continue
+
+        # 3. ITEM_ID (SKU / código producto)
+        if not has_item and any(syn == col_clean or col_clean.startswith(syn) for syn in VENTAS_SYNONYMS["sku"]):
+            columnas.append(ColumnaMapeada(
+                nombre_original=col,
+                tipo_inferido="ITEM_ID",
+                razonamiento="Identificador único de SKU/artículo.",
+                confianza=1.0
+            ))
+            has_item = True
+            continue
+
+        # 4. LOCATION_ID (sucursal/tienda)
+        if not has_location and any(loc in col_clean for loc in LOCATION_KEYWORDS):
+            columnas.append(ColumnaMapeada(
+                nombre_original=col,
+                tipo_inferido="LOCATION_ID",
+                razonamiento="Identificador de ubicación física/sucursal.",
+                confianza=0.95
+            ))
+            has_location = True
+            continue
+
+        # 5. IGNORED (hashes o llaves puras secundarias)
+        if any(ign in col_clean for ign in IGNORED_KEYWORDS):
+            columnas.append(ColumnaMapeada(
+                nombre_original=col,
+                tipo_inferido="IGNORED",
+                razonamiento="Columna de llave secundaria o hash sin valor predictivo.",
+                confianza=0.9
+            ))
+            continue
+
+        # 6. COVARIATE por defecto para las demás columnas
+        columnas.append(ColumnaMapeada(
+            nombre_original=col,
+            tipo_inferido="COVARIATE",
+            razonamiento="Covariable explicativa categórica o numérica.",
+            confianza=0.85
+        ))
+
+    # Asegurar que al menos tengamos TIMESTAMP y TARGET_METRIC
+    if not has_timestamp or not has_target:
+        # Fallback de emergencia si no coincidió por nombre
+        for c in columnas:
+            if not has_timestamp and c.tipo_inferido == "COVARIATE":
+                c.tipo_inferido = "TIMESTAMP"
+                has_timestamp = True
+                break
+        for c in columnas:
+            if not has_target and c.tipo_inferido == "COVARIATE":
+                c.tipo_inferido = "TARGET_METRIC"
+                has_target = True
+                break
+
+    return ResultadoMapeo(columnas=columnas)
 
 def transformar_datos(df_raw: pl.LazyFrame, mapeo: ResultadoMapeo) -> pl.LazyFrame:
     cols_ignored = [c.nombre_original for c in mapeo.columnas if c.tipo_inferido == "IGNORED"]
@@ -83,12 +161,9 @@ def transformar_datos(df_raw: pl.LazyFrame, mapeo: ResultadoMapeo) -> pl.LazyFra
         df_clean = df_clean.with_columns(pl.lit("1").alias("unique_id"))
 
     df_clean = df_clean.with_columns(pl.col("unique_id").cast(pl.String))
+    df_clean = df_clean.with_columns([pl.col("y").cast(pl.Float64)])
 
-    df_clean = df_clean.with_columns([
-        pl.col("y").cast(pl.Float64)
-    ])
     group_cols = ["unique_id", "ds"]
-    
     agg_exprs = [pl.col("y").sum()]
     for c in covariates_num:
         if c in df_clean.columns:
@@ -112,106 +187,35 @@ def transformar_datos(df_raw: pl.LazyFrame, mapeo: ResultadoMapeo) -> pl.LazyFra
             downcast_exprs.append(pl.col(c).cast(pl.Float32))
             
     df_agg = df_agg.with_columns(downcast_exprs)
-
     df_final = df_agg.sort(["unique_id", "ds"])
     return df_final
 
-import hashlib
-
-_SCHEMA_MAPPING_CACHE = {}
-
-def calcular_hash_esquema(df: pl.DataFrame) -> str:
-    firma = "|".join(f"{col}:{df.schema[col]}" for col in sorted(df.columns))
-    return hashlib.sha256(firma.encode("utf-8")).hexdigest()
-
 def procesar_archivo_a_parquet(file_path: str) -> str:
     es_parquet = file_path.lower().endswith(".parquet")
-    print(f"Cargando datos con Polars (Lazy API) desde {'Parquet' if es_parquet else 'CSV'}...")
     
     try:
         if es_parquet:
             lf = pl.scan_parquet(file_path)
             columnas_existentes = set(lf.collect_schema().names())
             if {"unique_id", "ds", "y"}.issubset(columnas_existentes):
-                print("El archivo Parquet ya contiene las columnas estandar ('unique_id', 'ds', 'y'). Pasando directo.")
                 return file_path
         else:
             lf = pl.scan_csv(file_path, infer_schema_length=0, ignore_errors=True)
     except FileNotFoundError:
-        print(f"Error: No se encontro el archivo '{file_path}'.")
         raise
 
-    df_muestra = lf.head(10000).collect()
-    firma_esquema = calcular_hash_esquema(df_muestra)
-    if firma_esquema in _SCHEMA_MAPPING_CACHE:
-        print("Esquema reconocido en cache semantica. Reutilizando mapeo previo sin consultar al LLM.")
-        respuesta = _SCHEMA_MAPPING_CACHE[firma_esquema]
-    else:
-        perfil_texto = extraer_perfil(df_muestra)
-        print("\n--- Perfil Extraido ---")
-        print(perfil_texto)
-        print("-----------------------\n")
-        
-        modelo_local = "qwen2.5" 
-        ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
-        
-        cliente = instructor.from_openai(
-            OpenAI(
-                base_url=ollama_base_url,
-                api_key="ollama-local"
-            ),
-            mode=instructor.Mode.JSON
-        )
-
-        prompt = f"""
-        Actua como un ingeniero de datos analizando una nueva base de datos de retail/negocios.
-        Tu objetivo es clasificar cada columna para preparar los datos para un algoritmo de prevision de demanda.
-        
-        REGLAS CRITICAS:
-        1. TARGET_METRIC debe ser siempre una columna numerica (Int o Float) que represente volumen de VENTAS o DEMANDA. 
-        2. NUNCA clasifiques precios, descuentos, costos o margenes como TARGET_METRIC. Si la columna es monetaria o de precio, clasificala como COVARIATE.
-        3. Si la columna contiene texto (String) como nombres de categorias, clasificala como COVARIATE.
-        4. DEBES asignar exactamente UNA columna como TIMESTAMP y exactamente UNA columna como TARGET_METRIC.
-        
-        Analiza la siguiente metadata de la tabla:
-        {perfil_texto}
-        
-        Clasifica estrictamente cada columna segun la ontologia definida.
-        """
-
-        print(f"Consultando al modelo {modelo_local}...")
-        
-        respuesta = cliente.chat.completions.create(
-            model=modelo_local,
-            response_model=ResultadoMapeo,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.1
-        )
-        _SCHEMA_MAPPING_CACHE[firma_esquema] = respuesta
-
+    df_muestra = lf.head(1000).collect()
+    mapeo = clasificar_columnas_determinista(df_muestra)
     del df_muestra
     gc.collect()
 
-    print("\n--- Resultados del Schema Matching ---")
-    for col in respuesta.columnas:
-        print(f"Columna: {col.nombre_original}")
-        print(f"Clasificacion: {col.tipo_inferido} (Certeza: {col.confianza})")
-        print(f"Razon: {col.razonamiento}")
-        print("-" * 40)
-
-    print("\n--- Transformacion a formato estructurado de series de tiempo ---")
-    lf_transformado = transformar_datos(lf, respuesta)
-    
-    print("Ejecutando pipeline y guardando a disco (esto puede tomar un momento)...")
+    lf_transformado = transformar_datos(lf, mapeo)
     out_path = file_path if es_parquet else file_path.replace(".csv", ".parquet")
     if es_parquet and out_path == file_path:
         out_path = file_path.replace(".parquet", "_preparado.parquet")
         
     lf_transformado.collect(streaming=True).write_parquet(out_path)
-    print(f"Datos transformados y guardados en '{out_path}' exitosamente.")
-    
     return out_path
 
 def procesar_csv_a_parquet(file_path: str) -> str:
     return procesar_archivo_a_parquet(file_path)
-

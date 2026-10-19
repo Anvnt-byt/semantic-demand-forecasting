@@ -157,5 +157,51 @@ Proteger la integridad jurídica y operativa de las bases de datos de producció
   - `test_mysql_read_only_enforcement`: Mock de sesión MySQL validando `transaction_read_only` y comando `SET SESSION TRANSACTION READ ONLY`.
 - Resultado: 18 pruebas ejecutadas, 18 superadas (100% éxito).
 
+---
+
+## 5. Exposición de Endpoints de Ingesta, Sincronización POS y Rate Limiting (2026-10-18)
+
+### Archivos creados/modificados:
+- `backend/routers/__init__.py`
+- `backend/routers/ingestion_router.py`
+- `backend/main.py`
+- `backend/pipeline_semantico.py`
+- `backend/tests/test_api_ingestion.py`
+- `backend/INGESTION_LOG.md`
+
+### Propósito arquitectónico:
+Centralizar la exposición HTTP RESTful de los servicios de ingesta con protección perimetral de tasa de peticiones (Rate Limiting) y streaming seguro de archivos temporales limitados a 50 MB para blindar el servidor contra saturación de memoria RAM y ataques de denegación de servicio (DoS).
+
+### Funcionalidades y Reglas de Negocio:
+- **Endpoints de Ingesta Manual de Archivos (`POST /ingest/file`):**
+  - Admite carga `multipart/form-data` para archivos `.csv` y `.xlsx` (Excel).
+  - Parámetro de entidad destino (`TargetEntity`): `ventas` o `inventario`.
+  - Soporte de sobrescritura manual de mapeo (`column_mapping_override`) en JSON opcional.
+  - Streaming a disco por bloques de 1 MB con límite máximo de 50 MB (`MAX_UPLOAD_SIZE_BYTES`); descarte con código HTTP 413 si se supera el umbral.
+  - Rate limiting controlado por SlowAPI (`10/minuto`).
+  - Limpieza rigurosa de archivos temporales en bloques `finally` y recolección forzada de basura (`gc.collect()`).
+- **Endpoints de Conexión y Sincronización POS Externa:**
+  - `POST /ingest/pos/test-connection`: Prueba y certifica en tiempo real que las credenciales del cliente establezcan la conexión en modo `READ-ONLY` estricto (revisión de variables de sesión en MySQL y PostgreSQL).
+  - `POST /ingest/pos/sync`: Extracción en streaming por lotes (`batch_size`), normalización semántica determinista, saneamiento de tipos y persistencia atómica en las tablas internas. Protegido por SlowAPI (`5/minuto`).
+- **Endpoints de Trazabilidad y Auditoría:**
+  - `GET /ingest/audit/{batch_id}`: Recuperación de métricas de procesamiento (total, válidas, descartadas, duplicados y muestra de errores).
+  - `GET /ingest/audit`: Listado cronológico de los lotes de ingesta recientes con paginación (`limit`).
+- **Desacoplamiento Total de Dependencias Externas (CERO Ollama):**
+  - Refactorización de `pipeline_semantico.py` sustituyendo las llamadas a `instructor` y `OpenAI` local por el clasificador semántico determinista por reglas, logrando ejecución instantánea sin consumo de VRAM ni dependencias de contenedores.
+
+### Pruebas y Validación:
+- Suite de pruebas de integración HTTP con FastAPI `TestClient` (`tests/test_api_ingestion.py`):
+  - `test_health_endpoint`: Verificación del estado de salud del servicio (HTTP 200).
+  - `test_ingest_file_csv_ventas`: Carga y persistencia exitosa de dataset CSV sintético de ventas; verificación de inserción y retorno de auditoría.
+  - `test_ingest_file_excel_inventario_with_lead_time`: Carga de libro Excel `.xlsx` sintético con columna alternativa `Dias_Entrega`; verificación del almacenamiento de `lead_time_dias` y consulta inmediata del reporte vía `GET /ingest/audit/{batch_id}`.
+  - `test_ingest_file_invalid_extension`: Rechazo inmediato (HTTP 400) ante archivos no tabulares (`.py`).
+  - `test_pos_test_connection_success`: Certificación exitosa de conexión de solo lectura ante credenciales POS simuladas.
+  - `test_pos_test_connection_security_violation`: Detección y bloqueo con código HTTP 403 cuando el servidor POS rechaza el modo de solo lectura.
+  - `test_pos_sync_success`: Simulación de extracción POS relacional, normalización de campos, deduplicación y persistencia transaccional.
+  - `test_list_recent_audits`: Consulta paginada del histórico de auditorías.
+- Resultado: 8 pruebas ejecutadas, 8 superadas (100% éxito).
+- **Consolidado General del Backend:** 41 pruebas ejecutadas a lo largo de los 5 módulos, 41 superadas (100% de éxito).
+
+
 
 
