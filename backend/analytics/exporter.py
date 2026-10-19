@@ -55,8 +55,11 @@ def generate_excel_report(
                 "Descripción": p.descripcion,
                 "Unidades Vendidas": p.unidades_vendidas,
                 "Ingresos Generados": p.ingresos,
+                "Contribución %": f"{p.pct_contribucion}%",
+                "Acumulado % (Lorenz)": f"{p.pct_acumulado}%",
                 "Stock Actual": p.stock_actual,
                 "Días Estimados Inventario": p.dias_inventario if p.dias_inventario is not None else "Sin rotación",
+                "Días Sin Venta": p.dias_sin_venta if p.dias_sin_venta is not None else "N/A",
                 "Clasificación ABC": p.clasificacion_abc,
                 "Alerta de Reorden": "SÍ" if p.alerta_reorden else "NO"
             })
@@ -64,7 +67,8 @@ def generate_excel_report(
         if df_turnover.empty:
             df_turnover = pd.DataFrame(columns=[
                 "SKU", "Descripción", "Unidades Vendidas", "Ingresos Generados",
-                "Stock Actual", "Días Estimados Inventario", "Clasificación ABC", "Alerta de Reorden"
+                "Contribución %", "Acumulado % (Lorenz)", "Stock Actual",
+                "Días Estimados Inventario", "Días Sin Venta", "Clasificación ABC", "Alerta de Reorden"
             ])
         df_turnover.to_excel(writer, sheet_name="Rotación y Stock", index=False)
 
@@ -85,6 +89,33 @@ def generate_excel_report(
                 "ID Vendedor", "Nombre", "Total Ventas", "Transacciones", "Ticket Promedio", "Contribución %"
             ])
         df_sellers.to_excel(writer, sheet_name="Vendedores", index=False)
+
+        # Pestaña 4: Datos Normalizados Planos (Aptos para Power BI, Tableau, Pandas)
+        tidy_rows = []
+        corte_iso = kpis.fecha_corte.strftime("%Y-%m-%d")
+        for p in turnover.productos:
+            tidy_rows.append({
+                "fecha_corte": corte_iso,
+                "sku": p.sku,
+                "descripcion": p.descripcion,
+                "unidades_vendidas": p.unidades_vendidas,
+                "ingresos_totales": p.ingresos,
+                "pct_contribucion_ingresos": p.pct_contribucion,
+                "pct_acumulado_lorenz": p.pct_acumulado,
+                "stock_actual": p.stock_actual,
+                "dias_inventario_restante": p.dias_inventario,
+                "dias_sin_venta": p.dias_sin_venta,
+                "clasificacion_abc": p.clasificacion_abc,
+                "alerta_reorden": 1 if p.alerta_reorden else 0
+            })
+        df_tidy = pd.DataFrame(tidy_rows)
+        if df_tidy.empty:
+            df_tidy = pd.DataFrame(columns=[
+                "fecha_corte", "sku", "descripcion", "unidades_vendidas", "ingresos_totales",
+                "pct_contribucion_ingresos", "pct_acumulado_lorenz", "stock_actual",
+                "dias_inventario_restante", "dias_sin_venta", "clasificacion_abc", "alerta_reorden"
+            ])
+        df_tidy.to_excel(writer, sheet_name="PowerBI_Tidy_Data", index=False)
 
     output.seek(0)
     return output

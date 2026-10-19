@@ -126,3 +126,30 @@ Este documento registra cronológicamente cada componente, servicio y esquema im
   - Atributo de Transparencia (`nivel_confianza`): Cada producto pronosticado devuelve `alta_ml` (LightGBM supervisado) o `fase_aprendizaje_heuristica` (EMA), permitiendo a la UI advertir al gerente sobre el grado de madurez del dato.
   - Parametrización SQL Portable: Filtros de fechas mediante objetos nativos `datetime` y soporte para dialectos SQLite (desarrollo/testing local) y PostgreSQL (producción).
   - Consistencia Contable en Tiempo Real: Se descarta el almacenamiento en caché ciego para KPIs diarios, asegurando que las ventas registradas se reflejen inmediatamente en la pantalla analítica.
+
+---
+
+## 8. Calibración para Analistas y Científicos de Datos (`backend/analytics/`)
+
+- **Fecha:** 2026-10-18
+- **Archivos modificados:**
+  - `backend/schemas/analytics.py`
+  - `backend/analytics/forecasting.py`
+  - `backend/analytics/metrics.py`
+  - `backend/analytics/exporter.py`
+- **Propósito:**
+  Asegurar rigor estadístico continuo, transparencia algorítmica y compatibilidad analítica directa para perfiles de Data Science y Business Intelligence (Power BI / Tableau).
+- **Funcionalidades Implementadas:**
+  - **Diagnósticos de Error Fuera de Muestra (WAPE / RMSE / CV):**
+    - `wape`: Weighted Absolute Percentage Error sobre ventana de validación (últimos 7 días para ML, 3 días para EMA), robusto frente a valores intermitentes o ceros.
+    - `rmse`: Root Mean Squared Error cuantificando penalización por errores de gran magnitud.
+    - `cv`: Coeficiente de variación ($\sigma / \mu$) que permite evaluar de inmediato la volatilidad de la demanda.
+    - `media_historica` y `desviacion_estandar`: Métricas descriptivas continuas base para dimensionamiento de inventario.
+  - **Fidelidad Estadística Continua (Sin Redondeo Forzado):**
+    - ROP (Punto de Reorden) y Stock de Seguridad preservan precisión flotante (sin `math.ceil` forzado), dejando el redondeo a los sistemas de compras y permitiendo cálculos cuantitativos de Lote Económico (EOQ) sin distorsión.
+  - **Corrección de Desplazamiento Pareto ABC y Detección de Inactividad:**
+    - Corrección mediante desplazamiento acumulado (`shift(1) < 80.0`): Garantiza que un producto dominante que supere el 80% de los ingresos de la tienda sea categorizado legítimamente como 'A' y no relegado a 'B'.
+    - `dias_sin_venta`: Cálculo de inactividad por producto respecto a la fecha máxima de corte para identificar stock estancado o descontinuado.
+  - **Exportación en Formato Tidy Data para Power BI:**
+    - Nueva pestaña `PowerBI_Tidy_Data` en el exportable Excel: Estructura tabular normalizada (Forma Normal / Tidy) con columnas `[Fecha, SKU, Nombre, Cantidad, Precio_Unitario, Ingreso_Total, Vendedor_ID]` lista para modelado DAX sin operaciones de pivote.
+

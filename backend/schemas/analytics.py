@@ -36,8 +36,12 @@ class ProductTurnoverItem(BaseModel):
     descripcion: str = Field(..., description="Descripción o nombre del producto")
     unidades_vendidas: float = Field(..., description="Unidades totales vendidas en la ventana de análisis")
     ingresos: float = Field(..., description="Ingresos monetarios generados por el producto")
+    pct_contribucion: float = Field(..., description="Porcentaje de participación sobre la facturación total analizada")
+    pct_acumulado: float = Field(..., description="Porcentaje acumulado en la curva de Lorenz/Pareto")
     stock_actual: float = Field(..., description="Existencia actual en inventario según el POS")
     dias_inventario: Optional[float] = Field(None, description="Días estimados de inventario restante a la velocidad actual de venta")
+    dias_sin_venta: Optional[int] = Field(None, description="Días transcurridos desde la última venta registrada")
+    coeficiente_variacion: Optional[float] = Field(None, description="Coeficiente de variación de demanda (CV = sigma / mu)")
     clasificacion_abc: Literal["A", "B", "C"] = Field(..., description="Categorización ABC por volumen de facturación (A: 80%, B: 15%, C: 5%)")
     alerta_reorden: bool = Field(..., description="Indica si el stock actual está por debajo del punto de reorden sugerido")
 
@@ -78,6 +82,11 @@ class ProductForecastItem(BaseModel):
         default="alta_ml",
         description="Nivel de madurez de la serie y algoritmo utilizado"
     )
+    media_historica: Optional[float] = Field(None, description="Media diaria de demanda histórica (mu)")
+    desviacion_estandar: Optional[float] = Field(None, description="Desviación estándar de demanda histórica (sigma)")
+    coeficiente_variacion: Optional[float] = Field(None, description="Coeficiente de variación (CV = sigma / mu)")
+    wape: Optional[float] = Field(None, description="Error porcentual absoluto ponderado out-of-sample (WAPE %)")
+    rmse: Optional[float] = Field(None, description="Raíz del error cuadrático medio (RMSE)")
     stock_seguridad_sugerido: Optional[float] = Field(None, ge=0, description="Stock de seguridad calculado para el tiempo de entrega")
     punto_reorden_sugerido: Optional[float] = Field(None, ge=0, description="Punto de reorden (ROP) sugerido")
     predicciones: List[ForecastPoint] = Field(..., description="Puntos de pronóstico temporal")

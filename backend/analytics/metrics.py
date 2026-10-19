@@ -183,7 +183,8 @@ def calculate_temporal_comparison(
 
 def calculate_products_turnover(window_days: int = 30) -> ProductsTurnoverResponse:
     """
-    Calcula rotación de inventario, clasificación ABC y alertas de reorden por SKU.
+    Calcula rotación de inventario, clasificación ABC (Pareto estricto con shift),
+    porcentajes de Lorenz y días sin venta por SKU para análisis cuantitativo.
     """
     fecha_inicio = datetime.utcnow() - timedelta(days=window_days)
     sql = """
@@ -193,7 +194,8 @@ def calculate_products_turnover(window_days: int = 30) -> ProductsTurnoverRespon
         COALESCE(SUM(v.cantidad), 0) AS unidades_vendidas,
         COALESCE(SUM(v.total), 0) AS ingresos,
         COALESCE(MAX(i.stock_actual), 0) AS stock_actual,
-        COALESCE(MAX(i.stock_minimo), 0) AS stock_minimo
+        COALESCE(MAX(i.stock_minimo), 0) AS stock_minimo,
+        MAX(DATE(v.fecha)) AS ultima_venta
     FROM ventas v
     LEFT JOIN inventario i ON v.sku = i.sku
     WHERE v.fecha >= :fecha_inicio
@@ -209,25 +211,30 @@ def calculate_products_turnover(window_days: int = 30) -> ProductsTurnoverRespon
             productos=[]
         )
 
-    # Calcular porcentaje acumulado para clasificación ABC
     total_ingresos = float(df["ingresos"].sum())
     if total_ingresos <= 0:
         total_ingresos = 1.0
 
+    # Porcentaje individual de aportación y velocidad diaria
     df = df.with_columns([
-        (pl.col("ingresos") / total_ingresos).alias("pct_ingreso"),
+        ((pl.col("ingresos") / total_ingresos) * 100).round(2).alias("pct_contribucion"),
         (pl.col("unidades_vendidas") / window_days).alias("velocidad_diaria")
     ])
 
+    # Curva acumulada de Lorenz / Pareto
     df = df.with_columns(
-        pl.col("pct_ingreso").cum_sum().alias("pct_acumulado")
+        pl.col("pct_contribucion").cum_sum().round(2).alias("pct_acumulado")
     )
 
-    # Asignación ABC: A <= 80%, B <= 95%, C > 95%
+    # Clasificación ABC estricta: el artículo que cruza el umbral pertenece a la categoría superior
     df = df.with_columns(
-        pl.when(pl.col("pct_acumulado") <= 0.80)
+        pl.col("pct_acumulado").shift(1).fill_null(0.0).alias("prev_acumulado")
+    )
+
+    df = df.with_columns(
+        pl.when(pl.col("prev_acumulado") < 80.0)
         .then(pl.lit("A"))
-        .when(pl.col("pct_acumulado") <= 0.95)
+        .when(pl.col("prev_acumulado") < 95.0)
         .then(pl.lit("B"))
         .otherwise(pl.lit("C"))
         .alias("clasificacion_abc")
@@ -236,7 +243,7 @@ def calculate_products_turnover(window_days: int = 30) -> ProductsTurnoverRespon
     # Días de inventario: stock_actual / velocidad_diaria
     df = df.with_columns(
         pl.when(pl.col("velocidad_diaria") > 0)
-        .then((pl.col("stock_actual") / pl.col("velocidad_diaria")).round(1))
+        .then((pl.col("stock_actual") / pl.col("velocidad_diaria")).round(2))
         .otherwise(None)
         .alias("dias_inventario")
     )
@@ -254,16 +261,31 @@ def calculate_products_turnover(window_days: int = 30) -> ProductsTurnoverRespon
     for item in abc_counts:
         resumen_abc[item["clasificacion_abc"]] = item["count"]
 
+    hoy_date = datetime.utcnow().date()
     productos = []
     for row in df.to_dicts():
+        # Cálculo de días transcurridos desde última venta
+        dias_inact = None
+        if row.get("ultima_venta"):
+            try:
+                u_str = str(row["ultima_venta"])[:10]
+                u_date = datetime.strptime(u_str, "%Y-%m-%d").date()
+                dias_inact = max(0, (hoy_date - u_date).days)
+            except Exception:
+                dias_inact = None
+
         productos.append(
             ProductTurnoverItem(
                 sku=str(row["sku"]),
                 descripcion=str(row["descripcion"]),
                 unidades_vendidas=float(row["unidades_vendidas"]),
                 ingresos=round(float(row["ingresos"]), 2),
+                pct_contribucion=float(row["pct_contribucion"]),
+                pct_acumulado=float(row["pct_acumulado"]),
                 stock_actual=float(row["stock_actual"]),
                 dias_inventario=float(row["dias_inventario"]) if row["dias_inventario"] is not None else None,
+                dias_sin_venta=dias_inact,
+                coeficiente_variacion=None,
                 clasificacion_abc=row["clasificacion_abc"],
                 alerta_reorden=bool(row["alerta_reorden"])
             )
