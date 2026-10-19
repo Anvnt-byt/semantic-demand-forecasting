@@ -31,7 +31,7 @@ export const CleaningToolbar: React.FC = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
-      {/* Barra superior de herramientas / botones de pincel */}
+      {/* Barra superior de herramientas de saneamiento */}
       <View style={styles.buttonsBar}>
         <TouchableOpacity
           onPress={() => setActiveTool(activeTool === 'outlier' ? null : 'outlier')}
@@ -43,7 +43,7 @@ export const CleaningToolbar: React.FC = () => {
           ]}
         >
           <Text style={[styles.toolBtnText, { color: activeTool === 'outlier' ? '#FFFFFF' : colors.textPrimary }]}>
-            ⚡ Tratar Outliers
+            Tratar Valores Atípicos
           </Text>
         </TouchableOpacity>
 
@@ -57,7 +57,7 @@ export const CleaningToolbar: React.FC = () => {
           ]}
         >
           <Text style={[styles.toolBtnText, { color: activeTool === 'impute' ? '#FFFFFF' : colors.textPrimary }]}>
-            🩹 Imputar Nulos
+            Imputar Valores Vacíos
           </Text>
         </TouchableOpacity>
 
@@ -71,7 +71,7 @@ export const CleaningToolbar: React.FC = () => {
           ]}
         >
           <Text style={[styles.toolBtnText, { color: activeTool === 'text' ? '#FFFFFF' : colors.textPrimary }]}>
-            ✂️ Normalizar Texto
+            Normalizar Cadenas
           </Text>
         </TouchableOpacity>
 
@@ -83,7 +83,7 @@ export const CleaningToolbar: React.FC = () => {
           ]}
         >
           <Text style={[styles.toolBtnText, { color: activeTool === 'derive' ? '#FFFFFF' : colors.textPrimary }]}>
-            ➕ Nueva Métrica
+            Derivar Columna
           </Text>
         </TouchableOpacity>
 
@@ -97,7 +97,7 @@ export const CleaningToolbar: React.FC = () => {
           ]}
         >
           <Text style={[styles.toolBtnText, { color: activeTool === 'filter' ? '#FFFFFF' : colors.textPrimary }]}>
-            🔍 Filtrar Columna
+            Filtrar Registros
           </Text>
         </TouchableOpacity>
 
@@ -108,14 +108,14 @@ export const CleaningToolbar: React.FC = () => {
             disabled={historyPast.length === 0}
             style={[styles.historyBtn, { borderColor: colors.surfaceBorder }, historyPast.length === 0 && styles.btnDisabled]}
           >
-            <Text style={[styles.historyText, { color: colors.textPrimary }]}>↩ Deshacer</Text>
+            <Text style={[styles.historyText, { color: colors.textPrimary }]}>Deshacer</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={redo}
             disabled={historyFuture.length === 0}
             style={[styles.historyBtn, { borderColor: colors.surfaceBorder }, historyFuture.length === 0 && styles.btnDisabled]}
           >
-            <Text style={[styles.historyText, { color: colors.textPrimary }]}>↪ Rehacer</Text>
+            <Text style={[styles.historyText, { color: colors.textPrimary }]}>Rehacer</Text>
           </TouchableOpacity>
         </View>
       </View>

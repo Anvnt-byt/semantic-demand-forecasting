@@ -32,32 +32,32 @@ export const RootNavigator: React.FC = () => {
   const navItems: NavTabItem[] = [
     {
       id: 'dashboard',
-      label: 'Tablero Analítico',
+      label: 'Tablero General',
       icon: (c) => <IconDashboard size={15} color={c} />,
     },
     {
       id: 'studio',
-      label: 'Data Studio (Wrangler)',
+      label: 'Curaduría de Datos',
       icon: (c) => <IconStudio size={15} color={c} />,
     },
     {
       id: 'inventory',
-      label: 'Inventario & ABC',
+      label: 'Rotación & Pareto ABC',
       icon: (c) => <IconInventory size={15} color={c} />,
     },
     {
       id: 'forecasting',
-      label: 'Predicción Demanda ML',
+      label: 'Previsión de Demanda',
       icon: (c) => <IconForecasting size={15} color={c} />,
     },
     {
       id: 'ingestion',
-      label: 'Ingesta & Auditoría',
+      label: 'Ingesta POS & Archivos',
       icon: (c) => <IconIngestion size={15} color={c} />,
     },
     {
       id: 'license',
-      label: 'Licencia & EULA',
+      label: 'Licencia & Entorno',
       icon: (c) => <IconLicense size={15} color={c} />,
     },
   ];

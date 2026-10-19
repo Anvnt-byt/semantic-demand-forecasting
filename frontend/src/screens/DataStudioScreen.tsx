@@ -59,18 +59,18 @@ export const DataStudioScreen: React.FC = () => {
       <View style={styles.headerRow}>
         <View>
           <View style={styles.titleBadgeRow}>
-            <Text style={[styles.mainTitle, { color: colors.textPrimary }]}>DATA STUDIO</Text>
+            <Text style={[styles.mainTitle, { color: colors.textPrimary }]}>ESTACIÓN DE CURADURÍA DE DATOS</Text>
             <View style={[styles.proBadge, { backgroundColor: colors.accentPrimaryGlow }]}>
-              <Text style={[styles.proBadgeText, { color: colors.accentPrimary }]}>WRANGLER & AUDIT</Text>
+              <Text style={[styles.proBadgeText, { color: colors.accentPrimary }]}>AUDITORÍA & SANEAMIENTO</Text>
             </View>
           </View>
           <Text style={[styles.subTitle, { color: colors.textMuted }]}>
-            Estación de saneamiento estadístico, perfilado de calidad e ingeniería de atributos no destructiva.
+            Perfilado estadístico de atributos, tratamiento de anomalías IQR, imputación de nulos y transformaciones reproducibles.
           </Text>
         </View>
 
         <TouchableOpacity onPress={handleConsolidate} style={[styles.consolidateBtn, { backgroundColor: colors.confidenceHigh }]}>
-          <Text style={styles.consolidateBtnText}>💾 Consolidar Datos</Text>
+          <Text style={styles.consolidateBtnText}>Consolidar y Aplicar Receta</Text>
         </TouchableOpacity>
       </View>
 
@@ -96,7 +96,7 @@ export const DataStudioScreen: React.FC = () => {
           ]}
         >
           <Text style={[styles.tabBtnText, { color: activeTab === 'profile' ? colors.accentPrimary : colors.textMuted }]}>
-            📊 Perfilador de Columna ({selectedColumn || 'Ninguna'})
+            Perfil Estadístico de Atributo ({selectedColumn || 'Ninguno'})
           </Text>
         </TouchableOpacity>
 
@@ -108,7 +108,7 @@ export const DataStudioScreen: React.FC = () => {
           ]}
         >
           <Text style={[styles.tabBtnText, { color: activeTab === 'recipe' ? colors.accentPrimary : colors.textMuted }]}>
-            📜 Receta de Capas ({recipe.length})
+            Historial de Transformaciones ({recipe.length})
           </Text>
         </TouchableOpacity>
       </View>
@@ -153,8 +153,8 @@ export const DataStudioScreen: React.FC = () => {
                       <Text style={[styles.thText, { color: isSelected ? colors.accentPrimary : colors.textPrimary }]}>
                         {col}
                       </Text>
-                      {hasOutliers && <Text style={styles.warningDot}> ⚡</Text>}
-                      {hasNulls && <Text style={styles.dangerDot}> ⚠️</Text>}
+                      {hasOutliers && <Text style={[styles.warningDot, { color: colors.alertWarning }]}> *</Text>}
+                      {hasNulls && <Text style={[styles.dangerDot, { color: colors.alertCritical }]}> !</Text>}
                     </View>
                     {p && (
                       <Text style={[styles.thType, { color: colors.textMuted }]}>

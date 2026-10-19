@@ -17,9 +17,7 @@ const THEME_STORAGE_KEY = 'posbuddy_user_theme_preference';
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const systemColorScheme = useColorScheme();
-  const [mode, setModeState] = useState<ThemeMode>(
-    systemColorScheme === 'light' ? 'light' : 'dark'
-  );
+  const [mode, setModeState] = useState<ThemeMode>('light');
 
   useEffect(() => {
     // Load persisted theme preference asynchronously without blocking

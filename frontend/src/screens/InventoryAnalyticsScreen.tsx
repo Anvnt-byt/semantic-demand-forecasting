@@ -68,7 +68,7 @@ export const InventoryAnalyticsScreen: React.FC = () => {
         </View>
 
         <TouchableOpacity onPress={loadInventory} style={[styles.refreshBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.surfaceBorder }]}>
-          <Text style={[styles.refreshText, { color: colors.accentPrimary }]}>↻ Actualizar</Text>
+          <Text style={[styles.refreshText, { color: colors.accentPrimary }]}>Actualizar Datos</Text>
         </TouchableOpacity>
       </View>
 
@@ -78,7 +78,7 @@ export const InventoryAnalyticsScreen: React.FC = () => {
           <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
             <Text style={[styles.summaryLabel, { color: colors.confidenceHigh }]}>CLASE A (80% FACTURACIÓN)</Text>
             <Text style={[styles.summaryVal, { color: colors.textPrimary }]}>{resumenAbc.A} SKUs</Text>
-            <Text style={[styles.summaryHelp, { color: colors.textMuted }]}>Artículos hiper-críticos de alto valor</Text>
+            <Text style={[styles.summaryHelp, { color: colors.textMuted }]}>Artículos de mayor impacto en facturación</Text>
           </View>
 
           <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
@@ -90,7 +90,7 @@ export const InventoryAnalyticsScreen: React.FC = () => {
           <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
             <Text style={[styles.summaryLabel, { color: colors.confidenceHeuristic }]}>CLASE C (5% FACTURACIÓN)</Text>
             <Text style={[styles.summaryVal, { color: colors.textPrimary }]}>{resumenAbc.C} SKUs</Text>
-            <Text style={[styles.summaryHelp, { color: colors.textMuted }]}>Artículos de bajo impacto comercial</Text>
+            <Text style={[styles.summaryHelp, { color: colors.textMuted }]}>Artículos de baja rotación relativa</Text>
           </View>
         </View>
       )}
@@ -114,8 +114,8 @@ export const InventoryAnalyticsScreen: React.FC = () => {
                 A: 'Solo Clase A',
                 B: 'Solo Clase B',
                 C: 'Solo Clase C',
-                REORDER: '⚠️ En Quiebre de Stock',
-                DEAD: '⏳ Stock Estancado (>10d)',
+                REORDER: 'En Quiebre de Stock',
+                DEAD: 'Sin Movimiento (>10d)',
               };
 
               return (

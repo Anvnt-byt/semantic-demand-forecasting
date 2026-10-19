@@ -13,14 +13,12 @@ import { useConfigStore } from '../store/useConfigStore';
 import {
   getKpisApi,
   getTemporalComparisonApi,
-  getSellersApi,
   getInventoryTurnoverApi,
 } from '../api/endpoints/analyticsApi';
 import {
   KpiMetrics,
   TemporalComparisonResponse,
   TemporalGranularity,
-  SellerPerformance,
   InventoryItemPareto,
 } from '../types/analytics.types';
 import { typography } from '../theme/theme';
@@ -29,7 +27,7 @@ import { TactileButton } from '../components/common/TactileButton';
 import { MetricBadge } from '../components/common/MetricBadge';
 import { ErrorBanner, BannerMessage } from '../components/common/ErrorBanner';
 import { TemporalComparisonChart } from '../components/charts/TemporalComparisonChart';
-import { SellersTable } from '../components/tables/SellersTable';
+import { CategoryBreakdownTable } from '../components/tables/CategoryBreakdownTable';
 import {
   IconFileExcel,
   IconFilePdf,
@@ -52,7 +50,6 @@ export const AnalyticsDashboardScreen: React.FC = () => {
   const [kpis, setKpis] = useState<KpiMetrics | null>(null);
   const [granularity, setGranularity] = useState<TemporalGranularity>('mes');
   const [temporalData, setTemporalData] = useState<TemporalComparisonResponse | null>(null);
-  const [sellers, setSellers] = useState<SellerPerformance[]>([]);
   const [inventorySummary, setInventorySummary] = useState<{ totalSkus: number; reorderCount: number }>({
     totalSkus: 0,
     reorderCount: 0,
@@ -67,16 +64,14 @@ export const AnalyticsDashboardScreen: React.FC = () => {
     setLoading(true);
     setBanner(null);
     try {
-      const [kpisRes, tempRes, selRes, invRes] = await Promise.all([
+      const [kpisRes, tempRes, invRes] = await Promise.all([
         getKpisApi(),
         getTemporalComparisonApi(granularity),
-        getSellersApi(),
         getInventoryTurnoverApi(),
       ]);
 
       setKpis(kpisRes);
       setTemporalData(tempRes);
-      setSellers(selRes);
 
       const reorders = invRes.filter(
         (item: InventoryItemPareto) => item.alerta_reorden || item.stock_actual <= item.stock_minimo
@@ -115,7 +110,7 @@ export const AnalyticsDashboardScreen: React.FC = () => {
 
   const handleExportExcel = async () => {
     if (!isExportExcelAllowed) {
-      showToast('Acceso Denegado (HTTP 403): La exportación PowerBI / Excel requiere Plan Pro.', {
+      showToast('Acceso Denegado: La exportación PowerBI / Excel requiere Plan Pro.', {
         type: 'error',
       });
       return;
@@ -135,7 +130,7 @@ export const AnalyticsDashboardScreen: React.FC = () => {
 
   const handleExportPdf = async () => {
     if (!isExportPdfAllowed) {
-      showToast('Acceso Denegado (HTTP 403): La exportación de informe PDF requiere Plan Pro.', {
+      showToast('Acceso Denegado: La exportación de informe PDF requiere Plan Pro.', {
         type: 'error',
       });
       return;
@@ -162,10 +157,10 @@ export const AnalyticsDashboardScreen: React.FC = () => {
       <View style={styles.header}>
         <View style={{ flex: 1, minWidth: 260 }}>
           <Text style={[styles.title, { color: colors.textPrimary }]}>
-            Tablero Analítico Ejecutivo
+            Tablero Analítico General
           </Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Visión global del negocio, comparativas periódicas y ranking de vendedores.
+            Consolidado de facturación, comparativas periódicas y distribución por categoría.
           </Text>
         </View>
 
@@ -202,7 +197,7 @@ export const AnalyticsDashboardScreen: React.FC = () => {
             </Text>
             <View style={styles.kpiDeltaRow}>
               <Text style={[styles.kpiDelta, { color: colors.confidenceHigh }]}>
-                +{kpis.crecimiento_mensual_pct}% vs mes ant.
+                +{kpis.crecimiento_mensual_pct}% vs mes anterior
               </Text>
             </View>
           </TactileCard>
@@ -242,13 +237,13 @@ export const AnalyticsDashboardScreen: React.FC = () => {
             <View style={[styles.hubIconBg, { backgroundColor: colors.accentPrimaryGlow }]}>
               <IconStudio size={18} color={colors.accentPrimary} />
             </View>
-            <MetricBadge type="plan_pro" label="DATA WRANGLER" />
+            <MetricBadge type="plan_pro" label="DATA PREP" />
           </View>
-          <Text style={[styles.hubTitle, { color: colors.textPrimary }]}>Data Studio ("Photoshop")</Text>
+          <Text style={[styles.hubTitle, { color: colors.textPrimary }]}>Curaduría de Datos</Text>
           <Text style={[styles.hubDescription, { color: colors.textSecondary }]}>
-            Perfilado estadístico de columnas, tratamiento de outliers IQR, imputación de nulos y recetas no destructivas.
+            Perfilado estadístico de atributos, tratamiento de anomalías IQR, imputación de nulos y transformaciones no destructivas.
           </Text>
-          <Text style={[styles.hubLink, { color: colors.accentPrimary }]}>Abrir Editor de Datos →</Text>
+          <Text style={[styles.hubLink, { color: colors.accentPrimary }]}>Abrir Estación de Curaduría →</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -262,12 +257,12 @@ export const AnalyticsDashboardScreen: React.FC = () => {
             </View>
             <MetricBadge
               type={inventorySummary.reorderCount > 0 ? 'pareto_a' : 'plan_starter'}
-              label={`${inventorySummary.reorderCount} ALERTA(S)`}
+              label={`${inventorySummary.reorderCount} EN REORDEN`}
             />
           </View>
           <Text style={[styles.hubTitle, { color: colors.textPrimary }]}>Inventario & Curva ABC</Text>
           <Text style={[styles.hubDescription, { color: colors.textSecondary }]}>
-            Clasificación Pareto 80/20, curva de Lorenz acumulada, detección de dead stock y puntos de reorden.
+            Clasificación Pareto 80/20, curva de Lorenz acumulada, detección de stock estancado y puntos de reorden.
           </Text>
           <Text style={[styles.hubLink, { color: colors.accentPrimary }]}>Ver Inventario Detallado →</Text>
         </TouchableOpacity>
@@ -283,11 +278,11 @@ export const AnalyticsDashboardScreen: React.FC = () => {
             </View>
             <MetricBadge type="alta_ml" label="LIGHTGBM" />
           </View>
-          <Text style={[styles.hubTitle, { color: colors.textPrimary }]}>Predicción Demanda ML</Text>
+          <Text style={[styles.hubTitle, { color: colors.textPrimary }]}>Previsión de Demanda</Text>
           <Text style={[styles.hubDescription, { color: colors.textSecondary }]}>
             Proyecciones probabilísticas con intervalos de confianza P10/P90, métricas WAPE, RMSE y simulación ROP.
           </Text>
-          <Text style={[styles.hubLink, { color: colors.accentPrimary }]}>Explorar Pronósticos ML →</Text>
+          <Text style={[styles.hubLink, { color: colors.accentPrimary }]}>Explorar Pronósticos →</Text>
         </TouchableOpacity>
       </View>
 
@@ -338,20 +333,20 @@ export const AnalyticsDashboardScreen: React.FC = () => {
         {temporalData && <TemporalComparisonChart data={temporalData.puntos} />}
       </TactileCard>
 
-      {/* 4. Desempeño de Vendedores */}
+      {/* 4. Distribución y Aporte por Categoría de Producto */}
       <TactileCard>
         <View style={styles.cardHeaderRow}>
           <View>
             <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-              DESEMPEÑO Y PRODUCTIVIDAD DE VENDEDORES
+              DISTRIBUCIÓN Y APORTE POR DEPARTAMENTO COMERCIAL
             </Text>
             <Text style={[styles.cardHelp, { color: colors.textSecondary }]}>
-              Ranking de aporte global a la facturación de la tienda y ticket promedio individual.
+              Aporte porcentual al volumen de ventas consolidado y margen bruto estimado por categoría.
             </Text>
           </View>
         </View>
 
-        <SellersTable data={sellers} />
+        <CategoryBreakdownTable />
       </TactileCard>
     </ScrollView>
   );

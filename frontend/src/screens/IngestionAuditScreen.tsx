@@ -138,7 +138,7 @@ export const IngestionAuditScreen: React.FC<IngestionAuditScreenProps> = ({ onCo
           ]}
         >
           <Text style={[styles.tabBtnText, { color: activeTab === 'pos' ? '#FFFFFF' : colors.textSecondary }]}>
-            🔌 Base de Datos POS (MySQL / Postgres)
+            Conexión Directa POS (MySQL / PostgreSQL)
           </Text>
         </TouchableOpacity>
 
@@ -150,7 +150,7 @@ export const IngestionAuditScreen: React.FC<IngestionAuditScreenProps> = ({ onCo
           ]}
         >
           <Text style={[styles.tabBtnText, { color: activeTab === 'file' ? '#FFFFFF' : colors.textSecondary }]}>
-            📁 Carga de Archivos (CSV / Excel)
+            Importación de Archivo (CSV / Excel)
           </Text>
         </TouchableOpacity>
       </View>
@@ -241,7 +241,7 @@ export const IngestionAuditScreen: React.FC<IngestionAuditScreenProps> = ({ onCo
               disabled={loading}
               style={[styles.actionBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.surfaceBorder }]}
             >
-              <Text style={[styles.actionBtnText, { color: colors.accentPrimary }]}>🛡️ Probar Conexión (Read-Only)</Text>
+              <Text style={[styles.actionBtnText, { color: colors.accentPrimary }]}>Verificar Conexión (Read-Only)</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -252,7 +252,7 @@ export const IngestionAuditScreen: React.FC<IngestionAuditScreenProps> = ({ onCo
               {loading ? (
                 <ActivityIndicator color="#FFF" size="small" />
               ) : (
-                <Text style={styles.syncBtnText}>⚡ Sincronizar y Extraer Datos</Text>
+                <Text style={styles.syncBtnText}>Sincronizar y Extraer Registros</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -263,7 +263,7 @@ export const IngestionAuditScreen: React.FC<IngestionAuditScreenProps> = ({ onCo
             CARGA MANUAL DE ARCHIVO LOCAL (.CSV O .XLSX)
           </Text>
           <Text style={[styles.cardHelp, { color: colors.textMuted }]}>
-            Parseo y normalización determinista (sin LLMs). Si el inventario incluye lead_time_dias, se calculará el ROP automáticamente.
+            Parseo y normalización determinista. Si el inventario incluye lead_time_dias, se calculará el ROP automáticamente.
           </Text>
 
           {/* Selector de Entidad */}
@@ -287,7 +287,7 @@ export const IngestionAuditScreen: React.FC<IngestionAuditScreenProps> = ({ onCo
           {/* Nombre simulado de archivo o selector */}
           <View style={styles.fileDropZone}>
             <Text style={[styles.dropTitle, { color: colors.textPrimary }]}>ARCHIVO SELECCIONADO:</Text>
-            <Text style={[styles.dropName, { color: colors.accentPrimary }]}>📄 {dummyFileName}</Text>
+            <Text style={[styles.dropName, { color: colors.accentPrimary }]}>{dummyFileName}</Text>
             <Text style={[styles.dropHelp, { color: colors.textMuted }]}>
               {dummyFileName.endsWith('.xlsx') ? 'Formato Excel Libro Abierto' : 'Archivo Tabular con Delimitador Coma'}
             </Text>
@@ -301,7 +301,7 @@ export const IngestionAuditScreen: React.FC<IngestionAuditScreenProps> = ({ onCo
             {loading ? (
               <ActivityIndicator color="#FFF" size="small" />
             ) : (
-              <Text style={styles.syncBtnText}>🚀 Procesar e Ingestar en PostgreSQL</Text>
+              <Text style={styles.syncBtnText}>Procesar e Ingestar en PostgreSQL</Text>
             )}
           </TouchableOpacity>
         </TactileCard>

@@ -52,17 +52,17 @@ export const DemandForecastingScreen: React.FC = () => {
         <View>
           <View style={styles.titleBadgeRow}>
             <Text style={[styles.title, { color: colors.textPrimary }]}>
-              LABORATORIO DE PRONÓSTICO & INVENTARIO PREDICTIVO
+              PREVISIÓN DE DEMANDA & DIMENSIONAMIENTO DE STOCK
             </Text>
             {forecast && (
               <MetricBadge
                 type={forecast.nivel_confianza}
-                label={forecast.nivel_confianza === 'alta_ml' ? 'LIGHTGBM SUPERVISADO (≥30d)' : 'HEURÍSTICO EXPONENCIAL (<30d)'}
+                label={forecast.nivel_confianza === 'alta_ml' ? 'LIGHTGBM SUPERVISADO (≥30 DÍAS)' : 'SUAVIZADO EXPONENCIAL (<30 DÍAS)'}
               />
             )}
           </View>
           <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-            Inferencia de demanda con intervalos conformales al 80% (p10 / p90) y dimensionamiento ROP por Lead Time.
+            Inferencia de demanda con intervalos conformales al 80% (p10 / p90) y cálculo de punto de pedido (ROP) por Lead Time.
           </Text>
         </View>
       </View>
