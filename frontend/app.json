@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "POSBuddy Demand Forecasting",
+    "slug": "posbuddy-demand-forecasting",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#0B0F19"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0B0F19"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
