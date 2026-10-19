@@ -111,4 +111,51 @@ Garantizar la pureza e integridad de los datos previo a su almacenamiento e infe
   - `test_auditor_persistence`: Comprobación de inserción en base de datos SQLite en memoria y consulta de reporte por `batch_id`.
 - Resultado: 5 pruebas ejecutadas, 5 superadas (100% éxito).
 
+---
+
+## 4. Conectores POS Seguros en Modo Solo Lectura Estricto para MySQL y PostgreSQL (2026-10-18)
+
+### Archivos creados/modificados:
+- `backend/connectors/__init__.py`
+- `backend/connectors/security.py`
+- `backend/connectors/base.py`
+- `backend/connectors/postgres_connector.py`
+- `backend/connectors/mysql_connector.py`
+- `backend/tests/test_pos_connectors.py`
+- `backend/INGESTION_LOG.md`
+
+### Propósito arquitectónico:
+Proteger la integridad jurídica y operativa de las bases de datos de producción de los clientes al extraer catálogos y transacciones, imponiendo barreras criptográficas, sesiones transaccionales de sólo lectura y análisis léxico contra inyecciones DDL/DML con streaming cursor para consumo acotado de memoria.
+
+### Funcionalidades y Reglas de Negocio:
+- **Conectores en solo lectura (SELECT exclusivo) para MySQL y PostgreSQL externos:**
+  - Validador de Seguridad SQL (`sanitize_and_validate_query`):
+    - Limpieza de comentarios SQL multilínea y de una sola línea.
+    - Rechazo inmediato de sentencias múltiples encadenadas con `;`.
+    - Enforzamiento estricto de que la sentencia inicie únicamente con `SELECT` o `WITH` (Common Table Expressions para lectura).
+    - Bloqueo de lista negra de palabras clave DDL/DML: `INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `TRUNCATE`, `CREATE`, `REPLACE`, `RENAME`, `GRANT`, `REVOKE`, `CALL`, `EXEC`, `EXECUTE`, `LOCK`, `SET`, `MERGE`, `OUTFILE`, etc.
+    - Emisión de excepción de seguridad crítica `SecurityViolationError`.
+  - Bandera Legal Inmutable:
+    - `ALLOW_EXTERNAL_WRITE_OPERATIONS = False` constante con descargo de responsabilidad explícito (`LEGAL_WRITE_DISCLAIMER`).
+  - Conector PostgreSQL POS (`PostgresPOSConnector`):
+    - Parámetro a nivel de DSN: `options="-c default_transaction_read_only=on"`.
+    - Ejecución de sesión: `SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY;`.
+    - Verificación proactiva con `SHOW transaction_read_only` antes de la extracción.
+    - Lectura en streaming mediante cursores nombrados del lado del servidor (`RealDictCursor`) por bloques configurables (`batch_size`).
+  - Conector MySQL POS (`MySQLPOSConnector`):
+    - Inicialización de conexión con `init_command="SET SESSION TRANSACTION READ ONLY;"`.
+    - Verificación proactiva de variable global/sesión: `SELECT @@session.transaction_read_only`.
+    - Lectura en streaming sin acumulación de buffer completo en memoria usando `SSDictCursor`.
+
+### Pruebas y Validación:
+- Suite de pruebas de seguridad y conectores (`tests/test_pos_connectors.py`):
+  - `test_sanitize_and_validate_query_valid`: Verificación de paso exitoso de consultas `SELECT` directas, CTEs complejas (`WITH`) y comentarios válidos.
+  - `test_sanitize_and_validate_query_forbidden`: Parametrización exhaustiva de 13 vectores de ataque sintéticos que intentan ejecutar `INSERT`, `UPDATE`, `DELETE`, `DROP`, `TRUNCATE`, `ALTER`, `GRANT`, multi-consultas con `;`, procedimientos almacenados `EXEC`/`CALL` y volcados de disco `INTO OUTFILE`. Todos rechazados con `SecurityViolationError`.
+  - `test_connector_factory_and_table_query`: Construcción automática y segura de consultas basadas en nombres simples de tabla para PostgreSQL y MySQL.
+  - `test_unsupported_database_engine`: Validación de rechazo de motores no relacionales o no soportados.
+  - `test_postgres_read_only_enforcement`: Mock de sesión PostgreSQL validando la configuración de `default_transaction_read_only=on` y el comando de sesión correspondiente.
+  - `test_mysql_read_only_enforcement`: Mock de sesión MySQL validando `transaction_read_only` y comando `SET SESSION TRANSACTION READ ONLY`.
+- Resultado: 18 pruebas ejecutadas, 18 superadas (100% éxito).
+
+
 
