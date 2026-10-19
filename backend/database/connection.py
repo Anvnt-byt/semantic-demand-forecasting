@@ -10,7 +10,9 @@ DEFAULT_DB_URL = "postgresql://postgres:postgres@localhost:5432/demand_forecasti
 def get_database_url() -> str:
     url = os.getenv("DATABASE_URL", DEFAULT_DB_URL).strip()
     if url.startswith("postgres://"):
-        url = url.replace("postgres://", "postgresql://", 1)
+        url = url.replace("postgres://", "postgresql+psycopg2://", 1)
+    elif url.startswith("postgresql://") and not url.startswith("postgresql+"):
+        url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
     return url
 
 _engine = None

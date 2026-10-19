@@ -20,12 +20,6 @@ test_engine = create_engine(
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
-@pytest.fixture(autouse=True)
-def setup_test_database():
-    Base.metadata.create_all(bind=test_engine)
-    yield
-    Base.metadata.drop_all(bind=test_engine)
-
 def override_get_db():
     db = TestingSessionLocal()
     try:
@@ -37,7 +31,14 @@ def override_get_db():
     finally:
         db.close()
 
-app.dependency_overrides[get_db] = override_get_db
+@pytest.fixture(autouse=True)
+def setup_test_database():
+    Base.metadata.create_all(bind=test_engine)
+    app.dependency_overrides[get_db] = override_get_db
+    yield
+    Base.metadata.drop_all(bind=test_engine)
+    app.dependency_overrides.clear()
+
 client = TestClient(app)
 
 def test_health_endpoint():
