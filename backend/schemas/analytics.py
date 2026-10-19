@@ -73,6 +73,11 @@ class ProductForecastItem(BaseModel):
     sku: str = Field(..., description="Identificador único del producto o SKU")
     horizonte_dias: int = Field(..., description="Días hacia el futuro proyectados")
     frecuencia_detectada: str = Field(..., description="Frecuencia temporal detectada ('D', 'W', 'H', etc.)")
+    lead_time_aplicado: int = Field(default=0, description="Días de tiempo de entrega utilizados para el cálculo")
+    nivel_confianza: Literal["alta_ml", "fase_aprendizaje_heuristica"] = Field(
+        default="alta_ml",
+        description="Nivel de madurez de la serie y algoritmo utilizado"
+    )
     stock_seguridad_sugerido: Optional[float] = Field(None, ge=0, description="Stock de seguridad calculado para el tiempo de entrega")
     punto_reorden_sugerido: Optional[float] = Field(None, ge=0, description="Punto de reorden (ROP) sugerido")
     predicciones: List[ForecastPoint] = Field(..., description="Puntos de pronóstico temporal")

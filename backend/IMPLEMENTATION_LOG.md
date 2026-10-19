@@ -107,3 +107,22 @@ Este documento registra cronológicamente cada componente, servicio y esquema im
   - `GET /api/analytics/export/excel`: Descarga en streaming del reporte multi-pestaña en formato `.xlsx`.
   - `GET /api/analytics/export/pdf`: Descarga en streaming del informe ejecutivo estructurado en `.pdf`.
   - `POST /api/license/verify`: Endpoint de activación y verificación de licencia para la Pantalla 1 (Setup) de la aplicación móvil.
+
+---
+
+## 7. Refinamientos de Escalabilidad y Casos Reales (`backend/analytics/forecasting.py`, `backend/schemas/analytics.py`)
+
+- **Fecha:** 2026-10-18
+- **Archivos modificados:**
+  - `backend/schemas/analytics.py`
+  - `backend/analytics/forecasting.py`
+  - `backend/analytics/metrics.py`
+  - `backend/analytics/db.py`
+- **Propósito:**
+  Resolver problemas operativos de retail del mundo real: tiempos de entrega diferenciados por proveedor/producto, productos recién lanzados (arranque en frío) y portabilidad estándar de consultas SQL.
+- **Funcionalidades Implementadas:**
+  - `lead_time_aplicado` prioritario por SKU: El motor consulta `lead_time_dias` de la tabla `inventario` para cada producto individual, permitiendo que perecederos (1-2 días) no se sobre-abastezcan y electrónicos (20-30 días) no caigan en quiebre de stock.
+  - Fallback Heurístico para Cold-Start (`_forecast_ema_heuristic`): Los productos con 7 a 29 días de historial ya no se descartan; se modelan mediante Media Móvil Exponencial (EMA, $\alpha=0.3$) combinada con factores de estacionalidad por día de la semana y bandas empíricas.
+  - Atributo de Transparencia (`nivel_confianza`): Cada producto pronosticado devuelve `alta_ml` (LightGBM supervisado) o `fase_aprendizaje_heuristica` (EMA), permitiendo a la UI advertir al gerente sobre el grado de madurez del dato.
+  - Parametrización SQL Portable: Filtros de fechas mediante objetos nativos `datetime` y soporte para dialectos SQLite (desarrollo/testing local) y PostgreSQL (producción).
+  - Consistencia Contable en Tiempo Real: Se descarta el almacenamiento en caché ciego para KPIs diarios, asegurando que las ventas registradas se reflejen inmediatamente en la pantalla analítica.
