@@ -306,3 +306,30 @@ export interface ToastContextType {
   4. "Confirmar Datos y Ejecutar Saneamiento" $\rightarrow$ Transición a "PASO 3 DE 3: AUDITORÍA DE CALIDAD" reflejando las métricas de filas limpias, descartadas y corregidas.
   5. Botón "Continuar al Tablero Analítico" $\rightarrow$ Establece `onboardingStep = 'completed'` y da paso al Dashboard permanente.
 
+---
+
+## Sección 9: Transformación Arquitectónica - "Photoshop de Datos" (Data Studio Wrangler), Navegación Modular de 5 Pestañas y Conexión End-to-End en dev
+**Fecha:** 2026-10-18
+
+### 1. Archivos Creados / Modificados
+- `src/store/useDataWranglerStore.ts` (NUEVO): Store Zustand reactivo para gestión no destructiva de datasets tabulares. Incluye perfilado estadístico en tiempo real (`min`, `max`, `mean`, `median`, `stdDev`, `q1`, `q3`, `iqr`, nulos, outliers), sistema de capas de transformaciones (recetas activables/desactivables), tratamiento de outliers (Winsorize / Trim por IQR y Z-Score), imputación estadística (media, mediana, constante cero, forward-fill), normalización de texto y derivación de columnas analíticas (`margen_bruto`, `ingreso_total`, `dia_semana`).
+- `src/components/studio/ColumnProfiler.tsx` (NUEVO): Panel de inspección profunda de columnas con barra tricolor de salud del dato (% válido, % atípico, % nulo), resumen de métricas paramétricas/no paramétricas e histograma SVG de 5 intervalos de frecuencia.
+- `src/components/studio/CleaningToolbar.tsx` (NUEVO): Barra de herramientas interactiva para analistas y científicos de datos con modales para capping de outliers, imputación de nulos, limpieza de cadenas y fórmulas de columnas calculadas.
+- `src/components/studio/RecipeHistoryPanel.tsx` (NUEVO): Consola de auditoría de transformaciones ("Capas de Photoshop") con conmutadores toggle por paso y botón de reversión global.
+- `src/screens/DataStudioScreen.tsx` (NUEVO): Pantalla principal del Data Studio que integra la barra de herramientas, selector de dataset activo, vista previa de grid tabular y perfilador estadístico.
+- `src/screens/InventoryAnalyticsScreen.tsx` (NUEVO): Pantalla especializada en inventario, clasificación Pareto ABC, curva de Lorenz, alertas de quiebre de stock, detección de productos estancados (dead stock >10 días) y búsqueda instantánea.
+- `src/screens/DemandForecastingScreen.tsx` (NUEVO): Laboratorio predictivo supervisado con inferencia LightGBM, bandas de incertidumbre no negativa [p10, p90], selección de horizonte (7, 14, 30 días), toggle de reentrenamiento, diagnóstico out-of-sample (WAPE, RMSE, CV) y punto de reorden (ROP) con Lead Time configurable.
+- `src/navigation/RootNavigator.tsx` & `src/navigation/types.ts`: Sustitución del flujo de onboarding rígido por una barra de navegación modular superior de 5 módulos de primer nivel con acceso inmediato y modo demo preconfigurado (`dashboard`, `studio`, `inventory`, `forecasting`, `ingestion`, `license`).
+- `src/screens/AnalyticsDashboardScreen.tsx`: Refactorización hacia un tablero ejecutivo conciso enfocado en KPIs macro, comparativa temporal por granularidad (día, semana, mes, año), ranking de vendedores y accesos directos táctiles hacia Data Studio, Inventario y Forecast.
+- `src/utils/fileDownloader.ts`: Descarga real de binarios Excel (con hoja `PowerBI_Tidy_Data`) e informes ejecutivos PDF directamente desde los endpoints FastAPI (`/api/analytics/export/excel` y `/api/analytics/export/pdf`).
+- `src/api/endpoints/ingestionApi.ts` & `src/types/ingestion.types.ts`: Armonización tipada completa con los esquemas Pydantic del backend (`AuditReport`, `IngestionStatusResponse`, `DatabaseEngine = 'mysql' | 'postgresql'`).
+
+### 2. Propósito Arquitectónico
+- Proporcionar un verdadero "Photoshop de Datos" para analistas y Store Managers: el saneamiento manual celda a celda es inviable en entornos comerciales con miles de tickets y viola la integridad de auditoría contable. El Data Studio permite aplicar recetas reproducibles y no destructivas sobre columnas completas.
+- Navegación modular orientada al rol: en lugar de forzar un wizard lineal secuencial, la aplicación permite al usuario explorar directamente el tablero analítico, abrir el laboratorio de pronósticos ML, consultar el inventario o conectar fuentes POS en cualquier orden.
+- Integración End-to-End en rama `dev`: sincronización perfecta entre ingesta POS/archivos, base de datos PostgreSQL local, motor analítico Polars/LightGBM y capa de visualización React Native.
+
+### 3. Casos de Prueba / Verificación
+- Verificación estricta TypeScript (`npx tsc --noEmit` en `frontend/`): 0 errores, código de salida 0.
+- Verificación de pruebas unitarias e integración en backend (`pytest tests/`): 43 pruebas pasando al 100% de éxito en 1.71s.
+

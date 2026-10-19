@@ -1,5 +1,8 @@
 export type RootTabParamList = {
-  SetupLicense: undefined;
-  IngestionAudit: undefined;
   AnalyticsDashboard: undefined;
+  DataStudio: undefined;
+  InventoryAnalytics: undefined;
+  DemandForecasting: undefined;
+  IngestionAudit: undefined;
+  SetupLicense: undefined;
 };

@@ -2,7 +2,13 @@ import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 
 export type OnboardingStep = 'license' | 'ingestion' | 'completed';
-export type ActiveSection = 'dashboard' | 'license' | 'ingestion';
+export type ActiveSection =
+  | 'dashboard'
+  | 'studio'
+  | 'inventory'
+  | 'forecasting'
+  | 'ingestion'
+  | 'license';
 
 interface ConfigState {
   backendHost: string;
@@ -29,7 +35,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   useMocks: true, // Default to true for resilient offline testing/dev, connects to live backend when disabled
   isOnline: false,
   lastPingMs: null,
-  onboardingStep: 'license',
+  onboardingStep: 'completed',
   activeSection: 'dashboard',
 
   setActiveSection: (section: ActiveSection) => {

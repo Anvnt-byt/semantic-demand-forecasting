@@ -5,46 +5,46 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useToast } from '../context/ToastContext';
 import { useLicenseStore } from '../store/useLicenseStore';
+import { useConfigStore } from '../store/useConfigStore';
 import {
   getKpisApi,
   getTemporalComparisonApi,
-  getInventoryTurnoverApi,
   getSellersApi,
-  predictDemandApi,
-  exportExcelApi,
-  exportPdfApi,
+  getInventoryTurnoverApi,
 } from '../api/endpoints/analyticsApi';
 import {
   KpiMetrics,
   TemporalComparisonResponse,
   TemporalGranularity,
-  InventoryItemPareto,
   SellerPerformance,
-  PredictDemandResponse,
+  InventoryItemPareto,
 } from '../types/analytics.types';
 import { typography } from '../theme/theme';
 import { TactileCard } from '../components/common/TactileCard';
 import { TactileButton } from '../components/common/TactileButton';
 import { MetricBadge } from '../components/common/MetricBadge';
 import { ErrorBanner, BannerMessage } from '../components/common/ErrorBanner';
-import { DemandForecastSvgChart } from '../components/charts/DemandForecastSvgChart';
 import { TemporalComparisonChart } from '../components/charts/TemporalComparisonChart';
-import { ParetoTable } from '../components/tables/ParetoTable';
 import { SellersTable } from '../components/tables/SellersTable';
-import { IconFileExcel, IconFilePdf } from '../components/common/SvgIcons';
+import {
+  IconFileExcel,
+  IconFilePdf,
+  IconStudio,
+  IconInventory,
+  IconForecasting,
+} from '../components/common/SvgIcons';
 import { downloadRealExcel, downloadRealPdf } from '../utils/fileDownloader';
 
 export const AnalyticsDashboardScreen: React.FC = () => {
   const { colors } = useTheme();
   const { showToast } = useToast();
-  const { hasModule, plan } = useLicenseStore();
+  const { hasModule } = useLicenseStore();
+  const { setActiveSection } = useConfigStore();
 
-  const isPredictiveAllowed = hasModule('predictive_demand');
   const isExportExcelAllowed = hasModule('export_excel');
   const isExportPdfAllowed = hasModule('export_pdf');
 
@@ -52,18 +52,14 @@ export const AnalyticsDashboardScreen: React.FC = () => {
   const [kpis, setKpis] = useState<KpiMetrics | null>(null);
   const [granularity, setGranularity] = useState<TemporalGranularity>('mes');
   const [temporalData, setTemporalData] = useState<TemporalComparisonResponse | null>(null);
-  const [inventory, setInventory] = useState<InventoryItemPareto[]>([]);
   const [sellers, setSellers] = useState<SellerPerformance[]>([]);
-
-  // Forecast LightGBM state
-  const [horizonDays, setHorizonDays] = useState<number>(14);
-  const [forceRetrain, setForceRetrain] = useState<boolean>(false);
-  const [forecast, setForecast] = useState<PredictDemandResponse | null>(null);
-  const [showDiagnostics, setShowDiagnostics] = useState<boolean>(true);
+  const [inventorySummary, setInventorySummary] = useState<{ totalSkus: number; reorderCount: number }>({
+    totalSkus: 0,
+    reorderCount: 0,
+  });
 
   // Status & Notifications
   const [loading, setLoading] = useState<boolean>(false);
-  const [predictLoading, setPredictLoading] = useState<boolean>(false);
   const [exportLoading, setExportLoading] = useState<string | null>(null);
   const [banner, setBanner] = useState<BannerMessage | null>(null);
 
@@ -71,25 +67,24 @@ export const AnalyticsDashboardScreen: React.FC = () => {
     setLoading(true);
     setBanner(null);
     try {
-      const [kpisRes, tempRes, invRes, selRes] = await Promise.all([
+      const [kpisRes, tempRes, selRes, invRes] = await Promise.all([
         getKpisApi(),
         getTemporalComparisonApi(granularity),
-        getInventoryTurnoverApi(),
         getSellersApi(),
+        getInventoryTurnoverApi(),
       ]);
 
       setKpis(kpisRes);
       setTemporalData(tempRes);
-      setInventory(invRes);
       setSellers(selRes);
 
-      if (isPredictiveAllowed) {
-        const predRes = await predictDemandApi({
-          dias_a_futuro: horizonDays,
-          force_retrain: forceRetrain,
-        });
-        setForecast(predRes);
-      }
+      const reorders = invRes.filter(
+        (item: InventoryItemPareto) => item.alerta_reorden || item.stock_actual <= item.stock_minimo
+      ).length;
+      setInventorySummary({
+        totalSkus: invRes.length,
+        reorderCount: reorders,
+      });
     } catch (err: unknown) {
       const errorObj = err as { message?: string; isRateLimited?: boolean; retryAfterSeconds?: number };
       setBanner({
@@ -101,7 +96,7 @@ export const AnalyticsDashboardScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [granularity, horizonDays, forceRetrain, isPredictiveAllowed]);
+  }, [granularity]);
 
   useEffect(() => {
     loadData();
@@ -115,36 +110,6 @@ export const AnalyticsDashboardScreen: React.FC = () => {
     } catch (err: unknown) {
       const errorObj = err as { message?: string };
       setBanner({ type: 'error', message: errorObj.message || 'Error al cambiar granularidad.' });
-    }
-  };
-
-  const handleRunPrediction = async () => {
-    if (!isPredictiveAllowed) {
-      showToast('Acceso Denegado (HTTP 403): El Motor Predictivo LightGBM requiere una licencia Plan Pro.', {
-        type: 'error',
-      });
-      return;
-    }
-
-    setPredictLoading(true);
-    setBanner(null);
-    try {
-      const res = await predictDemandApi({
-        dias_a_futuro: horizonDays,
-        force_retrain: forceRetrain,
-      });
-      setForecast(res);
-      showToast(
-        `Proyección a ${horizonDays} días calculada (${res.nivel_confianza === 'alta_ml' ? 'LightGBM ML' : 'Heurística EMA'}).`,
-        { type: 'success' }
-      );
-    } catch (err: unknown) {
-      const errorObj = err as { message?: string; isRateLimited?: boolean; retryAfterSeconds?: number };
-      showToast(errorObj.message || 'Error al ejecutar motor predictivo.', {
-        type: errorObj.isRateLimited ? 'warning' : 'error',
-      });
-    } finally {
-      setPredictLoading(false);
     }
   };
 
@@ -193,20 +158,21 @@ export const AnalyticsDashboardScreen: React.FC = () => {
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.contentContainer}
     >
+      {/* Header & Export Actions */}
       <View style={styles.header}>
         <View style={{ flex: 1, minWidth: 260 }}>
           <Text style={[styles.title, { color: colors.textPrimary }]}>
-            Tablero Analítico & Demanda Predictiva
+            Tablero Analítico Ejecutivo
           </Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Inteligencia comercial y pronóstico probabilístico en terminal local (LightGBM).
+            Visión global del negocio, comparativas periódicas y ranking de vendedores.
           </Text>
         </View>
 
         {/* Action Exports Bar */}
         <View style={styles.exportBar}>
           <TactileButton
-            title="Excel (PowerBI)"
+            title="Excel (Tidy Data)"
             icon={<IconFileExcel size={15} color={colors.accentPrimary} />}
             variant="outline"
             loading={exportLoading === 'excel'}
@@ -226,7 +192,7 @@ export const AnalyticsDashboardScreen: React.FC = () => {
 
       <ErrorBanner banner={banner} onDismiss={() => setBanner(null)} />
 
-      {/* 1. KPIs Ejecutivos */}
+      {/* 1. KPIs Ejecutivos Principales */}
       {kpis && (
         <View style={styles.kpiGrid}>
           <TactileCard style={styles.kpiCard}>
@@ -265,7 +231,67 @@ export const AnalyticsDashboardScreen: React.FC = () => {
         </View>
       )}
 
-      {/* 2. Comparativas Temporales */}
+      {/* 2. Centro de Acceso Rápido a Módulos Especializados */}
+      <View style={styles.hubGrid}>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => setActiveSection('studio')}
+          style={[styles.hubCard, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}
+        >
+          <View style={styles.hubHeader}>
+            <View style={[styles.hubIconBg, { backgroundColor: colors.accentPrimaryGlow }]}>
+              <IconStudio size={18} color={colors.accentPrimary} />
+            </View>
+            <MetricBadge type="plan_pro" label="DATA WRANGLER" />
+          </View>
+          <Text style={[styles.hubTitle, { color: colors.textPrimary }]}>Data Studio ("Photoshop")</Text>
+          <Text style={[styles.hubDescription, { color: colors.textSecondary }]}>
+            Perfilado estadístico de columnas, tratamiento de outliers IQR, imputación de nulos y recetas no destructivas.
+          </Text>
+          <Text style={[styles.hubLink, { color: colors.accentPrimary }]}>Abrir Editor de Datos →</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => setActiveSection('inventory')}
+          style={[styles.hubCard, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}
+        >
+          <View style={styles.hubHeader}>
+            <View style={[styles.hubIconBg, { backgroundColor: colors.accentPrimaryGlow }]}>
+              <IconInventory size={18} color={colors.accentPrimary} />
+            </View>
+            <MetricBadge
+              type={inventorySummary.reorderCount > 0 ? 'pareto_a' : 'plan_starter'}
+              label={`${inventorySummary.reorderCount} ALERTA(S)`}
+            />
+          </View>
+          <Text style={[styles.hubTitle, { color: colors.textPrimary }]}>Inventario & Curva ABC</Text>
+          <Text style={[styles.hubDescription, { color: colors.textSecondary }]}>
+            Clasificación Pareto 80/20, curva de Lorenz acumulada, detección de dead stock y puntos de reorden.
+          </Text>
+          <Text style={[styles.hubLink, { color: colors.accentPrimary }]}>Ver Inventario Detallado →</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => setActiveSection('forecasting')}
+          style={[styles.hubCard, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}
+        >
+          <View style={styles.hubHeader}>
+            <View style={[styles.hubIconBg, { backgroundColor: colors.accentPrimaryGlow }]}>
+              <IconForecasting size={18} color={colors.accentPrimary} />
+            </View>
+            <MetricBadge type="alta_ml" label="LIGHTGBM" />
+          </View>
+          <Text style={[styles.hubTitle, { color: colors.textPrimary }]}>Predicción Demanda ML</Text>
+          <Text style={[styles.hubDescription, { color: colors.textSecondary }]}>
+            Proyecciones probabilísticas con intervalos de confianza P10/P90, métricas WAPE, RMSE y simulación ROP.
+          </Text>
+          <Text style={[styles.hubLink, { color: colors.accentPrimary }]}>Explorar Pronósticos ML →</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* 3. Comparativas Temporales con Selector de Granularidad */}
       <TactileCard>
         <View style={styles.cardHeaderRow}>
           <View>
@@ -278,7 +304,12 @@ export const AnalyticsDashboardScreen: React.FC = () => {
           </View>
 
           {/* Granularity Selector */}
-          <View style={[styles.granularitySelector, { backgroundColor: colors.surfaceSecondary, borderColor: colors.surfaceBorder }]}>
+          <View
+            style={[
+              styles.granularitySelector,
+              { backgroundColor: colors.surfaceSecondary, borderColor: colors.surfaceBorder },
+            ]}
+          >
             {(['dia', 'semana', 'mes', 'ano'] as TemporalGranularity[]).map((g) => (
               <TouchableOpacity
                 key={g}
@@ -307,177 +338,7 @@ export const AnalyticsDashboardScreen: React.FC = () => {
         {temporalData && <TemporalComparisonChart data={temporalData.puntos} />}
       </TactileCard>
 
-      {/* 3. Motor Predictivo de Demanda (LightGBM) */}
-      <TactileCard highlight={true}>
-        <View style={styles.cardHeaderRow}>
-          <View>
-            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-              MOTOR PREDICTIVO DE DEMANDA (LIGHTGBM)
-            </Text>
-            <Text style={[styles.cardHelp, { color: colors.textSecondary }]}>
-              Proyección probabilística con bandas de incertidumbre P10 y P90.
-            </Text>
-          </View>
-
-          {forecast && (
-            <MetricBadge
-              type={forecast.nivel_confianza}
-              label={
-                forecast.nivel_confianza === 'alta_ml'
-                  ? 'MODELO ALTA CERTEZA (LightGBM)'
-                  : 'FASE APRENDIZAJE HEURÍSTICA (EMA)'
-              }
-            />
-          )}
-        </View>
-
-        {/* Prediction Controls */}
-        <View style={styles.predictionControlBar}>
-          <View style={styles.horizonSelector}>
-            <Text style={[styles.controlLabel, { color: colors.textMuted }]}>HORIZONTE:</Text>
-            {[7, 14, 30].map((d) => (
-              <TouchableOpacity
-                key={d}
-                onPress={() => setHorizonDays(d)}
-                style={[
-                  styles.horizonBtn,
-                  {
-                    borderColor: horizonDays === d ? colors.accentPrimary : colors.surfaceBorder,
-                    backgroundColor: horizonDays === d ? colors.accentPrimaryGlow : colors.inputBackground,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.horizonText,
-                    { color: horizonDays === d ? colors.accentPrimary : colors.textSecondary },
-                  ]}
-                >
-                  {d} Días
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <TouchableOpacity
-            onPress={() => setForceRetrain(!forceRetrain)}
-            style={styles.retrainToggle}
-          >
-            <View
-              style={[
-                styles.retrainCheckbox,
-                {
-                  borderColor: forceRetrain ? colors.accentPrimary : colors.surfaceBorder,
-                  backgroundColor: forceRetrain ? colors.accentPrimary : colors.inputBackground,
-                },
-              ]}
-            >
-              {forceRetrain && <Text style={{ color: '#FFFFFF', fontSize: 11 }}>✓</Text>}
-            </View>
-            <Text style={[styles.retrainLabel, { color: colors.textPrimary }]}>
-              Reentrenar modelo
-            </Text>
-          </TouchableOpacity>
-
-          <TactileButton
-            title="Calcular Proyección"
-            variant="primary"
-            loading={predictLoading}
-            onPress={handleRunPrediction}
-            style={styles.calcBtn}
-          />
-        </View>
-
-        {/* SVG Interactive Chart with P10/P90 Band */}
-        {forecast ? (
-          <DemandForecastSvgChart data={forecast.serie_temporal} />
-        ) : (
-          <View style={styles.chartPlaceholder}>
-            <Text style={{ color: colors.textMuted }}>
-              Presione "Calcular Proyección" para generar la curva de demanda.
-            </Text>
-          </View>
-        )}
-
-        {/* Diagnostic Metrics for Analysts */}
-        {forecast && (
-          <View style={styles.diagnosticsContainer}>
-            <TouchableOpacity
-              onPress={() => setShowDiagnostics(!showDiagnostics)}
-              style={styles.diagnosticsHeader}
-            >
-              <Text style={[styles.diagnosticsTitle, { color: colors.accentPrimary }]}>
-                {showDiagnostics ? '▼' : '►'} MÉTRICAS DIAGNÓSTICAS PARA ANALISTAS
-              </Text>
-            </TouchableOpacity>
-
-            {showDiagnostics && (
-              <View style={[styles.diagnosticsGrid, { backgroundColor: colors.surfaceSecondary }]}>
-                <View style={styles.diagItem}>
-                  <Text style={[styles.diagLabel, { color: colors.textMuted }]}>WAPE (ERROR %):</Text>
-                  <Text style={[styles.diagVal, { color: colors.confidenceHigh }]}>
-                    {forecast.metricas_diagnosticas.wape}%
-                  </Text>
-                </View>
-                <View style={styles.diagItem}>
-                  <Text style={[styles.diagLabel, { color: colors.textMuted }]}>RMSE:</Text>
-                  <Text style={[styles.diagVal, { color: colors.textPrimary }]}>
-                    {forecast.metricas_diagnosticas.rmse} un.
-                  </Text>
-                </View>
-                <View style={styles.diagItem}>
-                  <Text style={[styles.diagLabel, { color: colors.textMuted }]}>COEF. VARIACIÓN (CV):</Text>
-                  <Text style={[styles.diagVal, { color: colors.textPrimary }]}>
-                    {forecast.metricas_diagnosticas.cv}
-                  </Text>
-                </View>
-                <View style={styles.diagItem}>
-                  <Text style={[styles.diagLabel, { color: colors.textMuted }]}>STOCK SEGURIDAD:</Text>
-                  <Text style={[styles.diagVal, { color: colors.accentPrimary }]}>
-                    {forecast.metricas_diagnosticas.stock_seguridad} un.
-                  </Text>
-                </View>
-                <View style={styles.diagItem}>
-                  <Text style={[styles.diagLabel, { color: colors.textMuted }]}>PUNTO REORDEN:</Text>
-                  <Text style={[styles.diagVal, { color: colors.alertCritical }]}>
-                    {forecast.metricas_diagnosticas.punto_reorden} un.
-                  </Text>
-                </View>
-                <View style={styles.diagItem}>
-                  <Text style={[styles.diagLabel, { color: colors.textMuted }]}>LEAD TIME APLICADO:</Text>
-                  <Text style={[styles.diagVal, { color: colors.textPrimary }]}>
-                    {forecast.metricas_diagnosticas.lead_time_aplicado} días
-                  </Text>
-                </View>
-              </View>
-            )}
-
-            {/* Legal Disclaimer */}
-            <Text style={[styles.disclaimerText, { color: colors.textMuted }]}>
-              {forecast.disclaimer}
-            </Text>
-          </View>
-        )}
-      </TactileCard>
-
-      {/* 4. Rotación de Inventario y Clasificación Pareto ABC */}
-      <TactileCard>
-        <View style={styles.cardHeaderRow}>
-          <View>
-            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-              ROTACIÓN DE INVENTARIO & CLASIFICACIÓN PARETO ABC
-            </Text>
-            <Text style={[styles.cardHelp, { color: colors.textSecondary }]}>
-              Detección de productos de alto impacto (80/20) y alertas tempranas de desabastecimiento.
-            </Text>
-          </View>
-          <MetricBadge type="pareto_a" label="CURVA ABC" />
-        </View>
-
-        <ParetoTable data={inventory} />
-      </TactileCard>
-
-      {/* 5. Desempeño de Vendedores */}
+      {/* 4. Desempeño de Vendedores */}
       <TactileCard>
         <View style={styles.cardHeaderRow}>
           <View>
@@ -570,6 +431,49 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.xs,
     fontFamily: typography.fontFamilyMono,
   },
+  hubGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  hubCard: {
+    width: '31.5%',
+    minWidth: 200,
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 10,
+    justifyContent: 'space-between',
+  },
+  hubHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  hubIconBg: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hubTitle: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.bold,
+    marginBottom: 4,
+  },
+  hubDescription: {
+    fontSize: typography.fontSize.xs,
+    lineHeight: 16,
+    marginBottom: 10,
+  },
+  hubLink: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.bold,
+    fontFamily: typography.fontFamilyMono,
+  },
   cardHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -603,108 +507,7 @@ const styles = StyleSheet.create({
   },
   granularityText: {
     fontSize: typography.fontSize.xs,
-    fontFamily: typography.fontFamilyMono,
     fontWeight: typography.fontWeight.bold,
-  },
-  predictionControlBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    marginVertical: 10,
-    justifyContent: 'space-between',
-  },
-  horizonSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  controlLabel: {
-    fontSize: typography.fontSize.xs,
     fontFamily: typography.fontFamilyMono,
-    fontWeight: typography.fontWeight.bold,
-    marginRight: 6,
-  },
-  horizonBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-    borderWidth: 1,
-    marginRight: 6,
-  },
-  horizonText: {
-    fontSize: typography.fontSize.xs,
-    fontFamily: typography.fontFamilyMono,
-    fontWeight: typography.fontWeight.bold,
-  },
-  retrainToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  retrainCheckbox: {
-    width: 18,
-    height: 18,
-    borderRadius: 4,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 6,
-  },
-  retrainLabel: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.medium,
-  },
-  calcBtn: {
-    minHeight: 40,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-  },
-  chartPlaceholder: {
-    height: 200,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  diagnosticsContainer: {
-    marginTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.06)',
-    paddingTop: 10,
-  },
-  diagnosticsHeader: {
-    paddingVertical: 6,
-  },
-  diagnosticsTitle: {
-    fontSize: typography.fontSize.xs,
-    fontFamily: typography.fontFamilyMono,
-    fontWeight: typography.fontWeight.bold,
-    letterSpacing: 0.5,
-  },
-  diagnosticsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    padding: 10,
-    borderRadius: 8,
-    marginTop: 6,
-    justifyContent: 'space-between',
-  },
-  diagItem: {
-    width: '32%',
-    minWidth: 110,
-    marginBottom: 6,
-  },
-  diagLabel: {
-    fontSize: typography.fontSize.xs,
-    fontFamily: typography.fontFamilyMono,
-  },
-  diagVal: {
-    fontSize: typography.fontSize.sm,
-    fontFamily: typography.fontFamilyMono,
-    fontWeight: typography.fontWeight.bold,
-  },
-  disclaimerText: {
-    fontSize: typography.fontSize.xs,
-    fontStyle: 'italic',
-    lineHeight: 16,
-    marginTop: 10,
   },
 });

@@ -20,16 +20,25 @@ interface LicenseStoreState extends StoredLicenseState {
 const LICENSE_STORAGE_KEY = 'posbuddy_license_secure_vault';
 
 const defaultState: StoredLicenseState = {
-  isVerified: false,
-  licenseKey: '',
-  plan: 'starter',
-  daysRemaining: 0,
-  allowedModules: [],
+  isVerified: true,
+  licenseKey: 'TC-PRO-DEMO-2027',
+  plan: 'pro',
+  daysRemaining: 365,
+  allowedModules: [
+    'pos_ingestion',
+    'audit_pipeline',
+    'predictive_demand',
+    'pareto_abc',
+    'sellers_performance',
+    'temporal_comparison',
+    'export_excel',
+    'export_pdf',
+  ],
   posIdentifier: 'POS-TERM-01',
-  posName: 'Caja Principal',
-  eulaAccepted: false,
-  eulaAcceptedAt: undefined,
-  lastVerifiedAt: undefined,
+  posName: 'Caja Mostrador Demo',
+  eulaAccepted: true,
+  eulaAcceptedAt: '2026-10-18T00:00:00.000Z',
+  lastVerifiedAt: '2026-10-18T00:00:00.000Z',
 };
 
 export const useLicenseStore = create<LicenseStoreState>((set, get) => ({

@@ -169,3 +169,28 @@ export const IconTable: React.FC<IconProps> = ({ size = 16, color = 'currentColo
     <Line x1="15" y1="3" x2="15" y2="21" stroke={color} strokeWidth="2" />
   </Svg>
 );
+
+export const IconStudio: React.FC<IconProps> = ({ size = 16, color = 'currentColor' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path d="M12 2v4m0 12v4M2 12h4m12 0h4" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    <Path d="M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="2" />
+  </Svg>
+);
+
+export const IconInventory: React.FC<IconProps> = ({ size = 16, color = 'currentColor' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Line x1="3.27" y1="6.96" x2="12" y2="12.01" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Line x1="12" y1="22.08" x2="12" y2="12" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Line x1="20.73" y1="6.96" x2="12" y2="12.01" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+export const IconForecasting: React.FC<IconProps> = ({ size = 16, color = 'currentColor' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path d="M23 6l-9.5 9.5-5-5L1 18" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M17 6h6v6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+

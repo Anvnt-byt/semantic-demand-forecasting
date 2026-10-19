@@ -44,17 +44,22 @@ export const MOCK_LICENSE_STARTER: LicenseVerifyResponse = {
 };
 
 export const MOCK_INGESTION_STATUS: IngestionStatusResponse = {
-  status: 'completado',
-  origen: 'archivo_local',
-  fecha_ejecucion: new Date().toISOString(),
-  mensaje: 'Ingesta y saneamiento ejecutados con éxito. 0 anomalías críticas.',
-  metricas_saneamiento: {
-    filas_procesadas: 14820,
+  success: true,
+  message: 'Ingesta y saneamiento ejecutados con éxito. 0 anomalías críticas.',
+  audit: {
+    batch_id: 'batch-demo-mock-2026',
+    fuente: 'CSV',
+    tipo_entidad: 'ventas',
+    total_registros: 14820,
+    registros_validos: 14690,
     registros_descartados: 42,
-    duplicados_eliminados: 88,
-    nulos_imputados: 114,
-    tasa_calidad_pct: 99.12,
-    tiempo_procesamiento_ms: 1240,
+    duplicados_detectados: 88,
+    duracion_ms: 1240,
+    errores_muestra: [
+      { row_number: 14, reason: 'Valor negativo en cantidad (-2)', sample_data: { sku: 'SKU-009', cantidad: -2 } },
+      { row_number: 89, reason: 'Precio nulo o cero', sample_data: { sku: 'SKU-012', precio: 0 } },
+    ],
+    created_at: new Date().toISOString(),
   },
 };
 

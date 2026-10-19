@@ -9,7 +9,7 @@ export interface DatabaseConnectionParams {
   username: string;
   password?: string;
   engine: DatabaseEngine;
-  read_only_verified: boolean;
+  read_only_verified?: boolean;
 }
 
 export interface FileIngestionMeta {
@@ -17,6 +17,12 @@ export interface FileIngestionMeta {
   fileSizeBytes: number;
   fileExtension: 'csv' | 'parquet' | 'xlsx';
   uri?: string;
+}
+
+export interface ErrorDetail {
+  row_number: number;
+  reason: string;
+  sample_data?: Record<string, any>;
 }
 
 export interface SanitizationMetrics {
@@ -28,12 +34,23 @@ export interface SanitizationMetrics {
   tiempo_procesamiento_ms: number;
 }
 
+export interface AuditReport {
+  batch_id: string;
+  fuente: 'CSV' | 'EXCEL' | 'POS_MYSQL' | 'POS_POSTGRES';
+  tipo_entidad: 'ventas' | 'inventario';
+  total_registros: number;
+  registros_validos: number;
+  registros_descartados: number;
+  duplicados_detectados: number;
+  duracion_ms: number;
+  errores_muestra: ErrorDetail[];
+  created_at: string;
+}
+
 export interface IngestionStatusResponse {
-  status: PipelineStatus;
-  origen: 'base_relacional' | 'archivo_local';
-  metricas_saneamiento: SanitizationMetrics;
-  fecha_ejecucion: string;
-  mensaje: string;
+  success: boolean;
+  message: string;
+  audit: AuditReport;
 }
 
 export type IngestionPhase = 'source' | 'editor' | 'audit';
