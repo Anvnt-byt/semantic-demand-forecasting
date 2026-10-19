@@ -277,3 +277,32 @@ export interface ToastContextType {
 - Informe PDF: genera e invoca cuadro de impresión/PDF del sistema con KPIs ejecutivos y tablas formateadas.
 - Modal de configuración: se cierra con el botón "✕" y con toque en el overlay externo.
 - Tablas Pareto y Vendedores: columnas perfectamente alineadas horizontalmente y legibles en cualquier tamaño de pantalla.
+
+---
+
+## Sección 8: Módulo Interactivo de Edición y Sanitización de Datos Pre-Auditoría (Flujo de 3 Fases)
+**Fecha:** 2026-10-18
+
+### 1. Archivos Creados / Modificados
+- `src/components/editor/DataEditorView.tsx`: Vista interactiva para inspección tabular de transacciones cargadas, con edición en celda (inline cell edit), eliminación de registros individuales, búsqueda reactiva y barra de herramientas de sanitización masiva (deduplicación por firma única de tupla, imputación automática de valores nulos/vacíos y recorte de espacios en blanco `trim`).
+- `src/components/common/SvgIcons.tsx`: Incorporación de iconos SVG vectoriales dedicados (`IconEdit`, `IconTrash`, `IconFilter`, `IconSearch`, `IconTable`).
+- `src/types/ingestion.types.ts`: Definición de `IngestedDataRow` y estados de fase `IngestionPhase` (`'source'` | `'editor'` | `'audit'`).
+- `src/api/mockData.ts`: Dataset de muestra `MOCK_INGESTED_ROWS` con registros POS reales, incluyendo inconsistencias controladas (tuplas duplicadas intencionales y campos vacíos) para validar las herramientas de saneamiento.
+- `src/screens/IngestionAuditScreen.tsx`: Reestructuración del flujo en 3 fases secuenciales estrictas:
+  1. **Fase 1 (Origen):** Conexión SQL o subida de archivo local. Al completar, pasa a la Fase 2 en lugar de avanzar al Dashboard.
+  2. **Fase 2 (Editor de Datos):** El usuario audita, edita valores, elimina registros y ejecuta sanitizaciones en memoria antes de comprometer los datos.
+  3. **Fase 3 (Auditoría de Calidad):** Se calculan y muestran las métricas finales de saneamiento únicamente tras confirmar la revisión en el editor. El botón final avanza al Tablero Analítico.
+
+### 2. Propósito Arquitectónico
+- Separación de responsabilidades y soberanía del usuario: previene que datos no verificados fluyan directamente a los modelos predictivos de LightGBM sin supervisión analítica previa.
+- Procesamiento en memoria zero-cloud: todas las operaciones de edición y sanitización se ejecutan en estado local seguro, respetando los estándares OWASP para POS en red LAN.
+
+### 3. Casos de Prueba / Verificación
+- Verificación estricta TypeScript (`npx tsc --noEmit`): 0 errores.
+- Flujo de 3 fases validado:
+  1. Carga de archivo o sincronización BD $\rightarrow$ Redirige inmediatamente al Editor de Datos con badge "PASO 2 DE 3".
+  2. Edición de celdas: toque sobre cualquier celda abre input inline y actualiza el estado de la fila.
+  3. Herramientas de sanitización: "Eliminar Duplicados" remueve tuplas redundantes; "Imputar Vacíos" rellena campos omitidos; "Limpiar Espacios" normaliza strings.
+  4. "Confirmar Datos y Ejecutar Saneamiento" $\rightarrow$ Transición a "PASO 3 DE 3: AUDITORÍA DE CALIDAD" reflejando las métricas de filas limpias, descartadas y corregidas.
+  5. Botón "Continuar al Tablero Analítico" $\rightarrow$ Establece `onboardingStep = 'completed'` y da paso al Dashboard permanente.
+

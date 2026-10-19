@@ -6,7 +6,6 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useToast } from '../context/ToastContext';
@@ -17,13 +16,14 @@ import {
   triggerDatabaseIngestionApi,
   uploadDataFileApi,
 } from '../api/endpoints/ingestionApi';
-import { DatabaseEngine, PipelineStatus, SanitizationMetrics } from '../types/ingestion.types';
+import { DatabaseEngine, PipelineStatus, SanitizationMetrics, IngestionPhase } from '../types/ingestion.types';
 import { typography } from '../theme/theme';
 import { TactileCard } from '../components/common/TactileCard';
 import { TactileButton } from '../components/common/TactileButton';
 import { MetricBadge } from '../components/common/MetricBadge';
 import { ErrorBanner, BannerMessage } from '../components/common/ErrorBanner';
 import { IconDatabase, IconFileExcel, IconIngestion } from '../components/common/SvgIcons';
+import { DataEditorView } from '../components/editor/DataEditorView';
 
 interface IngestionAuditScreenProps {
   onComplete?: () => void;
@@ -36,7 +36,9 @@ export const IngestionAuditScreen: React.FC<IngestionAuditScreenProps> = ({ onCo
   const { onboardingStep, setOnboardingStep } = useConfigStore();
 
   const isIngestionAllowed = hasModule('pos_ingestion');
-  const isAuditAllowed = hasModule('audit_pipeline');
+
+  // Flujo de fases: source → editor → audit
+  const [ingestionPhase, setIngestionPhase] = useState<IngestionPhase>('source');
 
   // Tab state: 'db' | 'file'
   const [activeTab, setActiveTab] = useState<'db' | 'file'>('db');
@@ -48,24 +50,24 @@ export const IngestionAuditScreen: React.FC<IngestionAuditScreenProps> = ({ onCo
   const [dbName, setDbName] = useState('pos_retail_db');
   const [dbUser, setDbUser] = useState('pos_reader');
   const [dbPassword, setDbPassword] = useState('••••••••');
-  const [readOnlyVerified, setReadOnlyVerified] = useState(true);
+  const [readOnlyVerified] = useState(true);
 
   // File Form
   const [selectedFileName, setSelectedFileName] = useState('ventas_historicas_terminal.csv');
   const [fileSizeMb, setFileSizeMb] = useState(14.2);
 
   // Pipeline execution & Audit metrics state
-  const [pipelineStatus, setPipelineStatus] = useState<PipelineStatus>('completado');
+  const [pipelineStatus, setPipelineStatus] = useState<PipelineStatus>('inactivo');
   const [loading, setLoading] = useState(false);
   const [banner, setBanner] = useState<BannerMessage | null>(null);
 
   const [metrics, setMetrics] = useState<SanitizationMetrics>({
-    filas_procesadas: 14820,
-    registros_descartados: 42,
-    duplicados_eliminados: 88,
-    nulos_imputados: 114,
-    tasa_calidad_pct: 99.12,
-    tiempo_procesamiento_ms: 1240,
+    filas_procesadas: 0,
+    registros_descartados: 0,
+    duplicados_eliminados: 0,
+    nulos_imputados: 0,
+    tasa_calidad_pct: 0,
+    tiempo_procesamiento_ms: 0,
   });
 
   const handleTestDb = async () => {
@@ -114,7 +116,7 @@ export const IngestionAuditScreen: React.FC<IngestionAuditScreenProps> = ({ onCo
     setBanner(null);
 
     try {
-      const res = await triggerDatabaseIngestionApi({
+      await triggerDatabaseIngestionApi({
         host: dbHost,
         port: parseInt(dbPort, 10) || 5432,
         database: dbName,
@@ -124,18 +126,12 @@ export const IngestionAuditScreen: React.FC<IngestionAuditScreenProps> = ({ onCo
         read_only_verified: readOnlyVerified,
       });
 
-      setMetrics(res.metricas_saneamiento);
-      setPipelineStatus(res.status);
+      setPipelineStatus('completado');
       showToast(
-        `${res.mensaje} Se sanearon y cargaron ${res.metricas_saneamiento.filas_procesadas} registros. Pasando al Tablero Analítico...`,
+        'Datos cargados desde la base relacional. Revise y edite los registros antes de confirmar.',
         { type: 'success', durationMs: 4000 }
       );
-
-      await setOnboardingStep('completed');
-
-      if (onComplete) {
-        setTimeout(onComplete, 800);
-      }
+      setIngestionPhase('editor');
     } catch (err: unknown) {
       setPipelineStatus('error');
       const errorObj = err as { message?: string };
@@ -156,25 +152,19 @@ export const IngestionAuditScreen: React.FC<IngestionAuditScreenProps> = ({ onCo
     setBanner(null);
 
     try {
-      const res = await uploadDataFileApi({
+      await uploadDataFileApi({
         uri: 'file://local/sample.csv',
         name: selectedFileName,
         type: 'text/csv',
         size: fileSizeMb * 1024 * 1024,
       });
 
-      setMetrics(res.metricas_saneamiento);
-      setPipelineStatus(res.status);
+      setPipelineStatus('completado');
       showToast(
-        `${res.mensaje} (${res.metricas_saneamiento.filas_procesadas} registros procesados). Pasando al Tablero Analítico...`,
+        `Archivo '${selectedFileName}' cargado. Revise y edite los registros antes de confirmar.`,
         { type: 'success', durationMs: 4000 }
       );
-
-      await setOnboardingStep('completed');
-
-      if (onComplete) {
-        setTimeout(onComplete, 800);
-      }
+      setIngestionPhase('editor');
     } catch (err: unknown) {
       setPipelineStatus('error');
       const errorObj = err as { message?: string };
@@ -184,6 +174,162 @@ export const IngestionAuditScreen: React.FC<IngestionAuditScreenProps> = ({ onCo
     }
   };
 
+  // Callback del editor: el usuario confirma y se genera la auditoría
+  const handleEditorConfirm = (editorMetrics: SanitizationMetrics) => {
+    setMetrics(editorMetrics);
+    setPipelineStatus('completado');
+    setIngestionPhase('audit');
+    showToast('Saneamiento completado. Revise las métricas de calidad.', { type: 'success' });
+  };
+
+  // Confirmar auditoría y avanzar al dashboard
+  const handleFinalConfirm = async () => {
+    if (onboardingStep !== 'completed') {
+      await setOnboardingStep('completed');
+    }
+    showToast('Datos verificados. Accediendo al Tablero Analítico...', { type: 'success', durationMs: 3000 });
+    if (onComplete) {
+      setTimeout(onComplete, 600);
+    }
+  };
+
+  // ---- RENDER FASES ----
+
+  // Fase: Editor de datos
+  if (ingestionPhase === 'editor') {
+    return (
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        contentContainerStyle={styles.contentContainer}
+      >
+        <View style={styles.header}>
+          {onboardingStep !== 'completed' && (
+            <View style={{ marginBottom: 8 }}>
+              <MetricBadge
+                type="fase_aprendizaje_heuristica"
+                label="PASO 2 DE 3: REVISIÓN Y EDICIÓN DE DATOS"
+              />
+            </View>
+          )}
+          <Text style={[styles.title, { color: colors.textPrimary }]}>
+            Editor de Datos Cargados
+          </Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+            Revise, edite, elimine o sanitice los registros antes de generar el informe de calidad.
+          </Text>
+        </View>
+
+        <DataEditorView onConfirm={handleEditorConfirm} />
+
+        <TouchableOpacity
+          onPress={() => setIngestionPhase('source')}
+          style={[styles.backLink]}
+        >
+          <Text style={[styles.backLinkText, { color: colors.textMuted }]}>
+            Volver a la selección de origen de datos
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
+    );
+  }
+
+  // Fase: Auditoría
+  if (ingestionPhase === 'audit') {
+    return (
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        contentContainerStyle={styles.contentContainer}
+      >
+        <View style={styles.header}>
+          {onboardingStep !== 'completed' && (
+            <View style={{ marginBottom: 8 }}>
+              <MetricBadge
+                type="alta_ml"
+                label="PASO 3 DE 3: AUDITORÍA DE CALIDAD"
+              />
+            </View>
+          )}
+          <Text style={[styles.title, { color: colors.textPrimary }]}>
+            Auditoría de Saneamiento y Calidad de Datos
+          </Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+            Métricas finales del pipeline de saneamiento ejecutado sobre los datos revisados.
+          </Text>
+        </View>
+
+        <TactileCard highlight={true}>
+          <View style={styles.cardHeaderRow}>
+            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
+              AUDITORÍA DE SANEAMIENTO Y CALIDAD DE DATOS
+            </Text>
+            <MetricBadge
+              type={
+                pipelineStatus === 'completado'
+                  ? 'alta_ml'
+                  : pipelineStatus === 'procesando'
+                  ? 'fase_aprendizaje_heuristica'
+                  : 'alerta_reorden'
+              }
+              label={`PIPELINE: ${pipelineStatus.toUpperCase()}`}
+            />
+          </View>
+
+          <View style={styles.metricsGrid}>
+            <View style={[styles.metricTile, { backgroundColor: colors.surfaceSecondary }]}>
+              <Text style={[styles.tileLabel, { color: colors.textMuted }]}>PROCESADAS</Text>
+              <Text style={[styles.tileNumber, { color: colors.confidenceHigh }]}>
+                {metrics.filas_procesadas.toLocaleString()}
+              </Text>
+              <Text style={[styles.tileSub, { color: colors.textMuted }]}>Registros limpios</Text>
+            </View>
+
+            <View style={[styles.metricTile, { backgroundColor: colors.surfaceSecondary }]}>
+              <Text style={[styles.tileLabel, { color: colors.textMuted }]}>DESCARTADAS</Text>
+              <Text style={[styles.tileNumber, { color: colors.alertCritical }]}>
+                {metrics.registros_descartados}
+              </Text>
+              <Text style={[styles.tileSub, { color: colors.textMuted }]}>Inconsistencias</Text>
+            </View>
+
+            <View style={[styles.metricTile, { backgroundColor: colors.surfaceSecondary }]}>
+              <Text style={[styles.tileLabel, { color: colors.textMuted }]}>CAMPOS CORREGIDOS</Text>
+              <Text style={[styles.tileNumber, { color: colors.alertWarning }]}>
+                {metrics.nulos_imputados}
+              </Text>
+              <Text style={[styles.tileSub, { color: colors.textMuted }]}>Ediciones y correcciones</Text>
+            </View>
+
+            <View style={[styles.metricTile, { backgroundColor: colors.surfaceSecondary }]}>
+              <Text style={[styles.tileLabel, { color: colors.textMuted }]}>CALIDAD TOTAL</Text>
+              <Text style={[styles.tileNumber, { color: colors.accentPrimary }]}>
+                {metrics.tasa_calidad_pct.toFixed(2)}%
+              </Text>
+              <Text style={[styles.tileSub, { color: colors.textMuted }]}>
+                {metrics.tiempo_procesamiento_ms} ms
+              </Text>
+            </View>
+          </View>
+        </TactileCard>
+
+        <View style={styles.auditActions}>
+          <TactileButton
+            title="Volver al Editor"
+            variant="outline"
+            onPress={() => setIngestionPhase('editor')}
+            style={{ flex: 1, marginRight: 8 }}
+          />
+          <TactileButton
+            title={onboardingStep !== 'completed' ? 'Continuar al Tablero Analítico' : 'Guardar Cambios'}
+            variant="primary"
+            onPress={handleFinalConfirm}
+            style={{ flex: 1 }}
+          />
+        </View>
+      </ScrollView>
+    );
+  }
+
+  // Fase: Selección de origen (source)
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -194,7 +340,7 @@ export const IngestionAuditScreen: React.FC<IngestionAuditScreenProps> = ({ onCo
           <View style={{ marginBottom: 8 }}>
             <MetricBadge
               type="pareto_a"
-              label="PASO 2 DE 2: INGESTA Y SANEAMIENTO DE DATOS"
+              label="PASO 2 DE 3: INGESTA DE DATOS"
             />
           </View>
         )}
@@ -464,7 +610,7 @@ export const IngestionAuditScreen: React.FC<IngestionAuditScreenProps> = ({ onCo
           </View>
 
           <TactileButton
-            title="Procesar y Sanear Archivo"
+            title="Cargar y Procesar Archivo"
             variant="primary"
             loading={loading}
             onPress={handleProcessFile}
@@ -472,61 +618,6 @@ export const IngestionAuditScreen: React.FC<IngestionAuditScreenProps> = ({ onCo
           />
         </TactileCard>
       )}
-
-      {/* Audit Panel: Data Sanitization & Pipeline Status */}
-      <TactileCard highlight={true}>
-        <View style={styles.cardHeaderRow}>
-          <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-            AUDITORÍA DE SANEAMIENTO Y CALIDAD DE DATOS
-          </Text>
-          <MetricBadge
-            type={
-              pipelineStatus === 'completado'
-                ? 'alta_ml'
-                : pipelineStatus === 'procesando'
-                ? 'fase_aprendizaje_heuristica'
-                : 'alerta_reorden'
-            }
-            label={`PIPELINE: ${pipelineStatus.toUpperCase()}`}
-          />
-        </View>
-
-        <View style={styles.metricsGrid}>
-          <View style={[styles.metricTile, { backgroundColor: colors.surfaceSecondary }]}>
-            <Text style={[styles.tileLabel, { color: colors.textMuted }]}>PROCESADAS</Text>
-            <Text style={[styles.tileNumber, { color: colors.confidenceHigh }]}>
-              {metrics.filas_procesadas.toLocaleString()}
-            </Text>
-            <Text style={[styles.tileSub, { color: colors.textMuted }]}>Registros limpios</Text>
-          </View>
-
-          <View style={[styles.metricTile, { backgroundColor: colors.surfaceSecondary }]}>
-            <Text style={[styles.tileLabel, { color: colors.textMuted }]}>DESCARTADAS</Text>
-            <Text style={[styles.tileNumber, { color: colors.alertCritical }]}>
-              {metrics.registros_descartados}
-            </Text>
-            <Text style={[styles.tileSub, { color: colors.textMuted }]}>Inconsistencias</Text>
-          </View>
-
-          <View style={[styles.metricTile, { backgroundColor: colors.surfaceSecondary }]}>
-            <Text style={[styles.tileLabel, { color: colors.textMuted }]}>DUPLICADOS</Text>
-            <Text style={[styles.tileNumber, { color: colors.alertWarning }]}>
-              {metrics.duplicados_eliminados}
-            </Text>
-            <Text style={[styles.tileSub, { color: colors.textMuted }]}>Depurados</Text>
-          </View>
-
-          <View style={[styles.metricTile, { backgroundColor: colors.surfaceSecondary }]}>
-            <Text style={[styles.tileLabel, { color: colors.textMuted }]}>CALIDAD TOTAL</Text>
-            <Text style={[styles.tileNumber, { color: colors.accentPrimary }]}>
-              {metrics.tasa_calidad_pct.toFixed(2)}%
-            </Text>
-            <Text style={[styles.tileSub, { color: colors.textMuted }]}>
-              {metrics.tiempo_procesamiento_ms} ms
-            </Text>
-          </View>
-        </View>
-      </TactileCard>
     </ScrollView>
   );
 };
@@ -641,10 +732,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginVertical: 10,
   },
-  dropIcon: {
-    fontSize: 32,
-    marginBottom: 6,
-  },
   dropFileName: {
     fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.bold,
@@ -699,5 +786,19 @@ const styles = StyleSheet.create({
   tileSub: {
     fontSize: typography.fontSize.xs,
     fontFamily: typography.fontFamilyMono,
+  },
+  auditActions: {
+    flexDirection: 'row',
+    marginTop: 8,
+  },
+  backLink: {
+    alignSelf: 'center',
+    marginTop: 16,
+    paddingVertical: 8,
+  },
+  backLinkText: {
+    fontSize: typography.fontSize.xs,
+    fontFamily: typography.fontFamilyMono,
+    textDecorationLine: 'underline',
   },
 });

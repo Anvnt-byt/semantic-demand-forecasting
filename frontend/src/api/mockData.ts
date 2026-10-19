@@ -7,6 +7,7 @@ import {
   SellerPerformance,
   PredictDemandResponse,
 } from '../types/analytics.types';
+import { IngestedDataRow } from '../types/ingestion.types';
 
 export const MOCK_LICENSE_PRO: LicenseVerifyResponse = {
   valid: true,
@@ -276,3 +277,26 @@ export const MOCK_PREDICT_DEMAND: PredictDemandResponse = {
     { fecha: '2026-11-01', prediccion: 140, limite_inferior_p10: 118, limite_superior_p90: 164 },
   ],
 };
+
+export const MOCK_INGESTED_ROWS: IngestedDataRow[] = [
+  { id: 'TX-0001', fecha: '2026-10-15', sku: 'SKU-BEV-001', nombre_producto: 'Café Espresso Gourmet 1kg', cantidad: 3, precio_unitario: 289.90, total: 869.70, vendedor: 'Laura Morales', metodo_pago: 'tarjeta' },
+  { id: 'TX-0002', fecha: '2026-10-15', sku: 'SKU-BEV-002', nombre_producto: 'Bebida Energética Citrus 500ml', cantidad: 12, precio_unitario: 35.50, total: 426.00, vendedor: 'Carlos Mendoza', metodo_pago: 'efectivo' },
+  { id: 'TX-0003', fecha: '2026-10-15', sku: 'SKU-SNK-010', nombre_producto: 'Galletas Artesanales Choco-Avena', cantidad: 5, precio_unitario: 62.00, total: 310.00, vendedor: 'Sofía Valenzuela', metodo_pago: 'tarjeta' },
+  { id: 'TX-0004', fecha: '2026-10-15', sku: 'SKU-DAI-044', nombre_producto: 'Queso Gouda Madurado 500g', cantidad: 2, precio_unitario: 189.50, total: 379.00, vendedor: 'Mateo Rivas', metodo_pago: 'transferencia' },
+  { id: 'TX-0005', fecha: '2026-10-16', sku: 'SKU-CAN-089', nombre_producto: 'Atún en Aceite de Oliva 180g', cantidad: 8, precio_unitario: 45.00, total: 360.00, vendedor: 'Laura Morales', metodo_pago: 'tarjeta' },
+  // Duplicado intencional de TX-0001 (demo sanitización)
+  { id: 'TX-0006', fecha: '2026-10-15', sku: 'SKU-BEV-001', nombre_producto: 'Café Espresso Gourmet 1kg', cantidad: 3, precio_unitario: 289.90, total: 869.70, vendedor: 'Laura Morales', metodo_pago: 'tarjeta' },
+  { id: 'TX-0007', fecha: '2026-10-16', sku: 'SKU-CLF-102', nombre_producto: 'Licor de Hierbas Premium 750ml', cantidad: 1, precio_unitario: 520.00, total: 520.00, vendedor: 'Carlos Mendoza', metodo_pago: 'tarjeta' },
+  // Vendedor vacío (demo imputación de nulos)
+  { id: 'TX-0008', fecha: '2026-10-16', sku: 'SKU-ACC-304', nombre_producto: 'Bolsa Ecológica Reutilizable XL', cantidad: 4, precio_unitario: 15.00, total: 60.00, vendedor: '', metodo_pago: 'efectivo' },
+  { id: 'TX-0009', fecha: '2026-10-17', sku: 'SKU-BEV-001', nombre_producto: 'Café Espresso Gourmet 1kg', cantidad: 2, precio_unitario: 289.90, total: 579.80, vendedor: 'Sofía Valenzuela', metodo_pago: 'efectivo' },
+  // Whitespace intencional (demo trim)
+  { id: 'TX-0010', fecha: '2026-10-17', sku: 'SKU-BEV-002', nombre_producto: '  Bebida Energética Citrus 500ml  ', cantidad: 6, precio_unitario: 35.50, total: 213.00, vendedor: 'Mateo Rivas', metodo_pago: 'tarjeta' },
+  // Duplicado intencional de TX-0005
+  { id: 'TX-0011', fecha: '2026-10-16', sku: 'SKU-CAN-089', nombre_producto: 'Atún en Aceite de Oliva 180g', cantidad: 8, precio_unitario: 45.00, total: 360.00, vendedor: 'Laura Morales', metodo_pago: 'tarjeta' },
+  { id: 'TX-0012', fecha: '2026-10-17', sku: 'SKU-SNK-010', nombre_producto: 'Galletas Artesanales Choco-Avena', cantidad: 10, precio_unitario: 62.00, total: 620.00, vendedor: 'Laura Morales', metodo_pago: 'transferencia' },
+  // Vendedor vacío
+  { id: 'TX-0013', fecha: '2026-10-18', sku: 'SKU-DAI-044', nombre_producto: 'Queso Gouda Madurado 500g', cantidad: 3, precio_unitario: 189.50, total: 568.50, vendedor: '', metodo_pago: 'tarjeta' },
+  { id: 'TX-0014', fecha: '2026-10-18', sku: 'SKU-BEV-001', nombre_producto: 'Café Espresso Gourmet 1kg', cantidad: 5, precio_unitario: 289.90, total: 1449.50, vendedor: 'Carlos Mendoza', metodo_pago: 'efectivo' },
+  { id: 'TX-0015', fecha: '2026-10-18', sku: 'SKU-CLF-102', nombre_producto: 'Licor de Hierbas Premium 750ml', cantidad: 2, precio_unitario: 520.00, total: 1040.00, vendedor: 'Sofía Valenzuela', metodo_pago: 'tarjeta' },
+];

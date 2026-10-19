@@ -35,3 +35,17 @@ export interface IngestionStatusResponse {
   fecha_ejecucion: string;
   mensaje: string;
 }
+
+export type IngestionPhase = 'source' | 'editor' | 'audit';
+
+export interface IngestedDataRow {
+  id: string;
+  fecha: string;
+  sku: string;
+  nombre_producto: string;
+  cantidad: number;
+  precio_unitario: number;
+  total: number;
+  vendedor: string;
+  metodo_pago: string;
+}
