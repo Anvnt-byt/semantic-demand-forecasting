@@ -1,59 +1,96 @@
-# POS Analytics & Demand Forecasting Engine
+# TechConnect POS Analytics & Demand Forecasting Engine
 
-Este repositorio contiene la arquitectura backend y el soporte móvil para una herramienta de análisis de datos y apoyo a puntos de venta (POS). Diseñada para operar de forma modular, ligera y 100% local, garantizando la privacidad de los datos comerciales sin depender de servicios en la nube ni telemetría.
-
-## Arquitectura y Módulos
-
-### 1. Ingesta y Auditoría de Datos
-- **Conexiones automáticas (Solo Lectura):** Conexión no invasiva a bases de datos relacionales locales (MySQL y PostgreSQL) mediante consultas SELECT exclusivas.
-- **Carga manual:** Ingesta de archivos CSV y Excel (.xlsx).
-- **Pipeline de limpieza:** Detección de duplicados, validación de tipos e integridad de transacciones con reportes de auditoría.
-- **Base interna:** Almacenamiento local optimizado exclusivamente en PostgreSQL.
-
-### 2. Motor Analítico y Métricas de Negocio (Polars)
-- Agregaciones vectorizadas en memoria con **Polars** para alto rendimiento y bajo consumo de RAM.
-- **KPIs ejecutivos:** Ventas totales, tickets, ticket promedio y comparativas dinámicas (día vs. día anterior, mes vs. mes anterior, año vs. año anterior).
-- **Rotación de inventario:** Clasificación Pareto ABC (80/15/5), velocidad de venta diaria y alertas tempranas de reposición.
-- **Desempeño de ventas:** Métricas descriptivas por vendedor y porcentaje de contribución.
-
-### 3. Motor Predictivo de Demanda (LightGBM & MLForecast)
-- Inferencia de demanda sobre series temporales por SKU utilizando **LightGBM** optimizado para CPU multinúcleo.
-- Bandas de incertidumbre conformal (`p10` y `p90`) garantizadas como no negativas (`>= 0`).
-- Cálculo dinámico de **Stock de Seguridad** y **Punto de Reorden (ROP)** cuando se especifica el tiempo de entrega de proveedores (`lead_time`).
-- Concurrencia acotada con semáforos para proteger los recursos de la máquina en el punto de venta.
-
-### 4. Licenciamiento SaaS y Exportaciones
-- Validación de licencias SaaS offline mediante firmas criptográficas HMAC-SHA256, sin necesidad de conexión externa.
-- Generación de reportes tabulares en **Excel (.xlsx)** y resúmenes ejecutivos en **PDF**.
+Solución local (*on-premise*) de analítica comercial, control de inventario y pronóstico de demanda basada en aprendizaje automático para Puntos de Venta (POS). Diseñada para operar de forma modular, ligera y 100% local, garantizando la privacidad absoluta de los datos contables sin depender de servicios en la nube, contenedores Docker pesados ni telemetría externa.
 
 ---
 
-## Estructura del Repositorio
+## 1. Visión y Capacidades Principales
+
+- **100% Local y Privado:** Procesamiento en la terminal o servidor local del comercio; cero transferencia de datos a la nube o APIs de terceros.
+- **Rendimiento en Hardware Estándar:** Optimizado para operar de forma eficiente en equipos POS convencionales (4 a 8 GB de RAM, procesador de 2 a 4 núcleos), descartando cargas pesadas de LLMs o contenedores.
+- **Doble Perfil de Usuario:**
+  - **Gerente de Tienda:** Panel móvil ágil para consulta diaria de KPIs, metas de vendedores y alertas críticas de reabastecimiento.
+  - **Analista / Científico de Datos:** Transparencia estadística con diagnósticos de error fuera de muestra (WAPE, RMSE, Coeficiente de Variación), fidelidad decimal continua en inventario y exportación tabular normalizada (*Tidy Data*) para ingesta directa en Power BI y Tableau.
+
+---
+
+## 2. Arquitectura de Módulos
+
+```
+                                  [ Bases de Datos POS Locales ]
+                                  (MySQL / PostgreSQL en Solo Lectura)
+                                                │
+                                                ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ 1. Módulo de Ingesta y Auditoría (feat/backend-ingesta)                                │
+│    ├── Conectores no invasivos (SELECT exclusivo)                                      │
+│    ├── Carga manual de contingencia (CSV / Excel)                                      │
+│    └── Normalización y almacenamiento en PostgreSQL Local                              │
+└───────────────────────────────────────────────┬────────────────────────────────────────┘
+                                                │
+                                                ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ 2. Motor Analítico y Predictivo (feat/backend-analitica)                                │
+│    ├── Agregaciones vectorizadas en memoria con Polars (Push-down SQL)                 │
+│    ├── Rotación de Inventario y Curva de Lorenz (Pareto ABC con corrección de sesgo)   │
+│    ├── Pronóstico de Demanda: LightGBM / MLForecast (>=30d) + Fallback Heurístico EMA  │
+│    ├── Dimensionamiento de Stock: Stock de Seguridad y ROP por Lead Time de SKU        │
+│    ├── Diagnósticos Estadísticos: WAPE, RMSE, Coeficiente de Variación (CV)            │
+│    ├── Exportador en Memoria: Multi-pestaña Excel (con PowerBI_Tidy_Data) y PDF        │
+│    └── Licenciamiento Offline: Validación criptográfica HMAC-SHA256                    │
+└───────────────────────────────────────────────┬────────────────────────────────────────┘
+                                                │ REST API (FastAPI)
+                                                ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ 3. Interfaz Móvil y Punto de Venta (frontend)                                          │
+│    ├── Aplicación React Native para tablets y dispositivos móviles                     │
+│    ├── Tableros ejecutivos de KPIs y comparativas temporales                           │
+│    ├── Semáforo visual de quiebre de stock y órdenes de compra sugeridas               │
+│    └── Activación local de licencias SaaS                                              │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 3. Estructura del Repositorio y Ramas de Trabajo
+
+El desarrollo se organiza en ramas desacopladas para integración continua:
+
+- `main`: Rama de producción e integración base.
+- `feat/backend-ingesta`: Módulo de conexión, extracción y normalización a PostgreSQL.
+- `feat/backend-analitica`: Motor estadístico, modelos LightGBM, exportables y licencias.
+- `frontend`: Aplicación móvil en React Native.
 
 ```text
 .
-├── backend/            # Servicios FastAPI y motor analítico (Python)
-│   ├── analytics/      # Métricas, forecasting, exportaciones y licencias
-│   ├── connectors/     # Conectores relacionales e ingesta
-│   ├── schemas/        # Contratos y modelos de datos Pydantic
-│   ├── entrenar_modelo.py
-│   ├── main.py
-│   ├── requirements.txt
-│   └── .env.example
-├── frontend/           # Aplicación móvil (React Native)
+├── backend/                    # Servicios FastAPI y motor analítico (Python)
+│   ├── analytics/              # Métricas, forecasting, exportaciones y licencias
+│   │   ├── db.py               # Pool SQLAlchemy y vectorización Polars
+│   │   ├── metrics.py          # KPIs, comparativas temporales, Pareto ABC
+│   │   ├── forecasting.py      # LightGBM, EMA cold-start, WAPE/RMSE, ROP
+│   │   ├── exporter.py         # Generación de Excel y PDF en memoria
+│   │   └── license.py          # Verificación criptográfica HMAC-SHA256
+│   ├── connectors/             # Conectores relacionales e ingesta (MySQL / Postgres)
+│   ├── schemas/                # Contratos y modelos de datos Pydantic v2
+│   ├── entrenar_modelo.py      # Script de entrenamiento por lotes
+│   ├── main.py                 # Punto de entrada de FastAPI
+│   ├── requirements.txt        # Dependencias Python
+│   └── .env.example            # Variables de entorno modelo
+├── frontend/                   # Aplicación móvil (React Native)
 │   └── .gitkeep
+├── DISCLAIMER.md               # Descargo de responsabilidad algorítmica
+├── LICENSE                     # Licencia MIT
 └── README.md
 ```
 
 ---
 
-## Guía de Inicio
+## 4. Guía de Inicio Rápido
 
-### Requisitos Previos
-
-- **Python 3.10+** (para `backend`)
-- **PostgreSQL 14+** (base de datos local del sistema)
-- **Node.js 18+** & **npm / yarn** (para `frontend`)
+### Requisitos del Sistema
+- **Python 3.10+**
+- **PostgreSQL 14+** (Instancia local)
+- **Node.js 18+** & **npm / yarn** (para React Native)
 
 ### Configuración del Backend
 
@@ -61,29 +98,31 @@ Este repositorio contiene la arquitectura backend y el soporte móvil para una h
 cd backend
 python -m venv .venv
 
-# Windows PowerShell:
+# Activar entorno virtual
+# En Windows PowerShell:
 .venv\Scripts\Activate.ps1
-# Linux/macOS:
+# En Linux/macOS:
 # source .venv/bin/activate
 
+# Instalar dependencias
 pip install -r requirements.txt
+
+# Configurar variables de entorno
 cp .env.example .env
 
-# Iniciar servidor local
+# Ejecutar servidor de desarrollo
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 El servicio estará disponible en `http://localhost:8000`.
 
-### Documentación Interactiva (Swagger / OpenAPI)
-
-En modo de desarrollo (`ENVIRONMENT=development`), la documentación interactiva está disponible en:
+### Documentación Interactiva de la API
 - **Swagger UI:** [http://localhost:8000/docs](http://localhost:8000/docs)
 - **ReDoc:** [http://localhost:8000/redoc](http://localhost:8000/redoc)
 
 ---
 
-## Licencia y Privacidad
+## 5. Licencia y Responsabilidad
 
-- **Licencia:** Distribuido bajo términos de la **MIT License**. Consulta [LICENSE](LICENSE) para más detalles.
-- **Aviso Legal:** El procesamiento es 100% local. Consulta [DISCLAIMER.md](DISCLAIMER.md) para condiciones sobre el uso de pronósticos algorítmicos.
+- **Licencia:** Distribuido bajo la **MIT License**. Consulta [LICENSE](LICENSE) para más información.
+- **Aviso Legal:** Los pronósticos generados son estimaciones estadísticas de apoyo a la decisión y no garantizan resultados financieros o comerciales. Consulta [DISCLAIMER.md](DISCLAIMER.md).
