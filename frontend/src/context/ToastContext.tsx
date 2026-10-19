@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useRef } from 
 import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { typography, touchTarget } from '../theme/theme';
+import { IconCheck, IconClose, IconWarning, IconDashboard } from '../components/common/SvgIcons';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
@@ -77,41 +78,47 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [opacityAnim, translateYAnim, hideToast]
   );
 
-  const getColors = () => {
+  const renderIcon = () => {
     switch (type) {
       case 'success':
-        return {
-          bg: colors.confidenceHighBg,
-          border: colors.confidenceHigh,
-          text: colors.confidenceHigh,
-          icon: '✓',
-        };
+        return <IconCheck size={18} color={colors.confidenceHigh} />;
       case 'error':
-        return {
-          bg: colors.alertCriticalBg,
-          border: colors.alertCritical,
-          text: colors.alertCritical,
-          icon: '✕',
-        };
+        return <IconClose size={18} color={colors.alertCritical} />;
       case 'warning':
-        return {
-          bg: colors.alertWarningBg,
-          border: colors.alertWarning,
-          text: colors.alertWarning,
-          icon: '⚠️',
-        };
+        return <IconWarning size={18} color={colors.alertWarning} />;
       case 'info':
       default:
-        return {
-          bg: colors.accentPrimaryGlow,
-          border: colors.accentPrimary,
-          text: colors.accentPrimary,
-          icon: 'ℹ',
-        };
+        return <IconDashboard size={18} color={colors.accentPrimary} />;
     }
   };
 
-  const scheme = getColors();
+  const getBorderColor = () => {
+    switch (type) {
+      case 'success':
+        return colors.confidenceHigh;
+      case 'error':
+        return colors.alertCritical;
+      case 'warning':
+        return colors.alertWarning;
+      case 'info':
+      default:
+        return colors.accentPrimary;
+    }
+  };
+
+  const getBgColor = () => {
+    switch (type) {
+      case 'success':
+        return colors.confidenceHighBg;
+      case 'error':
+        return colors.alertCriticalBg;
+      case 'warning':
+        return colors.alertWarningBg;
+      case 'info':
+      default:
+        return colors.accentPrimaryGlow;
+    }
+  };
 
   return (
     <ToastContext.Provider value={{ showToast, hideToast }}>
@@ -134,8 +141,8 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               styles.toastCard,
               {
                 backgroundColor: colors.surface,
-                borderColor: scheme.border,
-                shadowColor: scheme.border,
+                borderColor: getBorderColor(),
+                shadowColor: getBorderColor(),
               },
             ]}
           >
@@ -143,15 +150,15 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               style={[
                 styles.iconBadge,
                 {
-                  backgroundColor: scheme.bg,
-                  borderColor: scheme.border,
+                  backgroundColor: getBgColor(),
+                  borderColor: getBorderColor(),
                 },
               ]}
             >
-              <Text style={[styles.iconText, { color: scheme.text }]}>{scheme.icon}</Text>
+              {renderIcon()}
             </View>
             <Text style={[styles.messageText, { color: colors.textPrimary }]}>{message}</Text>
-            <Text style={[styles.closeHint, { color: colors.textMuted }]}>✕</Text>
+            <IconClose size={16} color={colors.textMuted} />
           </TouchableOpacity>
         </Animated.View>
       )}

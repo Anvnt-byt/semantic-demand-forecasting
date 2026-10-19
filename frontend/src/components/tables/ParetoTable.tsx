@@ -14,11 +14,21 @@ export const ParetoTable: React.FC<ParetoTableProps> = ({ data }) => {
 
   const renderHeader = () => (
     <View style={[styles.headerRow, { backgroundColor: colors.surfaceSecondary, borderColor: colors.surfaceBorder }]}>
-      <Text style={[styles.colSku, styles.headerText, { color: colors.textMuted }]}>SKU / PRODUCTO</Text>
-      <Text style={[styles.colClass, styles.headerText, { color: colors.textMuted }]}>ABC</Text>
-      <Text style={[styles.colMetric, styles.headerText, { color: colors.textMuted }]}>% APORTE</Text>
-      <Text style={[styles.colStock, styles.headerText, { color: colors.textMuted }]}>STOCK</Text>
-      <Text style={[styles.colAlerts, styles.headerText, { color: colors.textMuted }]}>ESTADO</Text>
+      <View style={styles.colSku}>
+        <Text style={[styles.headerText, { color: colors.textMuted }]}>SKU / PRODUCTO</Text>
+      </View>
+      <View style={styles.colClass}>
+        <Text style={[styles.headerText, styles.textCenter, { color: colors.textMuted }]}>ABC</Text>
+      </View>
+      <View style={styles.colMetric}>
+        <Text style={[styles.headerText, styles.textRight, { color: colors.textMuted }]}>% APORTE</Text>
+      </View>
+      <View style={styles.colStock}>
+        <Text style={[styles.headerText, styles.textRight, { color: colors.textMuted }]}>STOCK</Text>
+      </View>
+      <View style={styles.colAlerts}>
+        <Text style={[styles.headerText, styles.textRight, { color: colors.textMuted }]}>ESTADO</Text>
+      </View>
     </View>
   );
 
@@ -63,7 +73,7 @@ export const ParetoTable: React.FC<ParetoTableProps> = ({ data }) => {
 
       <View style={styles.colAlerts}>
         {item.alerta_reorden && (
-          <MetricBadge type="alerta_reorden" label="REORDEN" style={styles.badgeMargin} />
+          <MetricBadge type="alerta_reorden" label="REORDEN" />
         )}
         {item.es_stock_estancado && (
           <MetricBadge type="stock_estancado" label="ESTANCADO" />
@@ -110,31 +120,47 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamilyMono,
     letterSpacing: 0.5,
   },
+  textCenter: {
+    textAlign: 'center',
+    width: '100%',
+  },
+  textRight: {
+    textAlign: 'right',
+    width: '100%',
+  },
   row: {
     flexDirection: 'row',
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 12,
     borderBottomWidth: 1,
     alignItems: 'center',
   },
+  // Precise column sizing preventing any crowding or overlap
   colSku: {
-    flex: 2.5,
+    flex: 2.8,
+    paddingRight: 8,
   },
   colClass: {
-    flex: 0.8,
+    flex: 0.9,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   colMetric: {
-    flex: 1.2,
+    flex: 1.5,
     alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingRight: 8,
   },
   colStock: {
-    flex: 1.3,
+    flex: 1.8,
     alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingRight: 16,
   },
   colAlerts: {
     flex: 1.8,
     alignItems: 'flex-end',
+    justifyContent: 'center',
   },
   skuCode: {
     fontSize: typography.fontSize.xs,
@@ -158,8 +184,5 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.xs,
     fontFamily: typography.fontFamilyMono,
     fontWeight: typography.fontWeight.semibold,
-  },
-  badgeMargin: {
-    marginBottom: 4,
   },
 });

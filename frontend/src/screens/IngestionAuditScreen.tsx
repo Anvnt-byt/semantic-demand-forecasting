@@ -23,6 +23,7 @@ import { TactileCard } from '../components/common/TactileCard';
 import { TactileButton } from '../components/common/TactileButton';
 import { MetricBadge } from '../components/common/MetricBadge';
 import { ErrorBanner, BannerMessage } from '../components/common/ErrorBanner';
+import { IconDatabase, IconFileExcel, IconIngestion } from '../components/common/SvgIcons';
 
 interface IngestionAuditScreenProps {
   onComplete?: () => void;
@@ -213,19 +214,21 @@ export const IngestionAuditScreen: React.FC<IngestionAuditScreenProps> = ({ onCo
           onPress={() => setActiveTab('db')}
           style={[
             styles.tabButton,
+            { flexDirection: 'row', alignItems: 'center' },
             activeTab === 'db' && {
               backgroundColor: colors.surface,
               borderColor: colors.accentPrimary,
             },
           ]}
         >
+          <IconDatabase size={15} color={activeTab === 'db' ? colors.accentPrimary : colors.textMuted} />
           <Text
             style={[
               styles.tabText,
-              { color: activeTab === 'db' ? colors.accentPrimary : colors.textMuted },
+              { color: activeTab === 'db' ? colors.accentPrimary : colors.textMuted, marginLeft: 8 },
             ]}
           >
-            🗄️ BASE RELACIONAL (POSTGRESQL / MYSQL)
+            BASE RELACIONAL (SQL)
           </Text>
         </TouchableOpacity>
 
@@ -233,19 +236,21 @@ export const IngestionAuditScreen: React.FC<IngestionAuditScreenProps> = ({ onCo
           onPress={() => setActiveTab('file')}
           style={[
             styles.tabButton,
+            { flexDirection: 'row', alignItems: 'center' },
             activeTab === 'file' && {
               backgroundColor: colors.surface,
               borderColor: colors.accentPrimary,
             },
           ]}
         >
+          <IconFileExcel size={15} color={activeTab === 'file' ? colors.accentPrimary : colors.textMuted} />
           <Text
             style={[
               styles.tabText,
-              { color: activeTab === 'file' ? colors.accentPrimary : colors.textMuted },
+              { color: activeTab === 'file' ? colors.accentPrimary : colors.textMuted, marginLeft: 8 },
             ]}
           >
-            📁 ARCHIVO LOCAL (CSV / PARQUET)
+            ARCHIVO LOCAL (CSV / PARQUET)
           </Text>
         </TouchableOpacity>
       </View>
@@ -421,7 +426,9 @@ export const IngestionAuditScreen: React.FC<IngestionAuditScreenProps> = ({ onCo
               },
             ]}
           >
-            <Text style={[styles.dropIcon, { color: colors.accentPrimary }]}>📄</Text>
+            <View style={{ marginBottom: 8 }}>
+              <IconIngestion size={36} color={colors.accentPrimary} />
+            </View>
             <Text style={[styles.dropFileName, { color: colors.textPrimary }]}>
               {selectedFileName}
             </Text>

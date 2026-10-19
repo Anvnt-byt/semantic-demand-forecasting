@@ -19,6 +19,7 @@ import { TactileCard } from '../components/common/TactileCard';
 import { TactileButton } from '../components/common/TactileButton';
 import { MetricBadge } from '../components/common/MetricBadge';
 import { ErrorBanner, BannerMessage } from '../components/common/ErrorBanner';
+import { IconCheck } from '../components/common/SvgIcons';
 
 interface SetupLicenseScreenProps {
   onSuccess?: () => void;
@@ -113,15 +114,21 @@ export const SetupLicenseScreen: React.FC<SetupLicenseScreenProps> = ({ onSucces
           posName: inputPosName.trim(),
         });
 
-        showToast(
-          `Licencia ${result.plan.toUpperCase()} verificada con éxito. Avanzando a Ingesta...`,
-          { type: 'success', durationMs: 4000 }
-        );
+        if (onboardingStep === 'completed') {
+          showToast(`Configuración de licencia guardada correctamente.`, { type: 'success' });
+          const { setActiveSection } = useConfigStore.getState();
+          setActiveSection('dashboard');
+        } else {
+          showToast(
+            `Licencia ${result.plan.toUpperCase()} verificada con éxito. Avanzando a Ingesta...`,
+            { type: 'success', durationMs: 4000 }
+          );
 
-        await setOnboardingStep('ingestion');
+          await setOnboardingStep('ingestion');
 
-        if (onSuccess) {
-          setTimeout(onSuccess, 800);
+          if (onSuccess) {
+            setTimeout(onSuccess, 800);
+          }
         }
       } else {
         showToast(result.message || 'Clave de licencia inválida o expirada.', { type: 'error' });
@@ -200,13 +207,13 @@ export const SetupLicenseScreen: React.FC<SetupLicenseScreenProps> = ({ onSucces
         <View style={styles.demoButtonsRow}>
           <TactileButton
             title="Plan Pro (8 Módulos)"
-            variant="primary"
+            variant={inputKey === 'TC-PRO-DEMO-2027' ? 'primary' : 'outline'}
             onPress={() => applyDemoKey('TC-PRO-DEMO-2027')}
             style={styles.demoBtn}
           />
           <TactileButton
             title="Plan Starter (4 Módulos)"
-            variant="secondary"
+            variant={inputKey === 'TC-STARTER-DEMO-2027' ? 'primary' : 'outline'}
             onPress={() => applyDemoKey('TC-STARTER-DEMO-2027')}
             style={styles.demoBtn}
           />
@@ -365,7 +372,7 @@ export const SetupLicenseScreen: React.FC<SetupLicenseScreenProps> = ({ onSucces
               },
             ]}
           >
-            {localEula && <Text style={styles.checkIcon}>✓</Text>}
+            {localEula && <IconCheck size={14} color="#FFFFFF" />}
           </View>
           <Text style={[styles.checkboxLabel, { color: colors.textPrimary }]}>
             He leído y acepto los términos del EULA, el procesamiento local y la política de solo lectura.
@@ -373,9 +380,15 @@ export const SetupLicenseScreen: React.FC<SetupLicenseScreenProps> = ({ onSucces
         </TouchableOpacity>
       </TactileCard>
 
-      {/* Verification Submit Button */}
+      {/* Verification / Save Submit Button */}
       <TactileButton
-        title={isVerified ? 'Actualizar / Re-verificar Licencia' : 'Verificar y Activar Licencia'}
+        title={
+          onboardingStep === 'completed'
+            ? 'Guardar Configuración y Volver al Tablero'
+            : isVerified
+            ? 'Actualizar / Re-verificar Licencia'
+            : 'Verificar y Activar Licencia'
+        }
         variant="primary"
         loading={loading}
         onPress={handleVerify}

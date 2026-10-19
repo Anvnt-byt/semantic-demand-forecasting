@@ -7,6 +7,15 @@ import { pingBackend } from '../../api/client';
 import { typography } from '../../theme/theme';
 import { MetricBadge } from './MetricBadge';
 import { TactileButton } from './TactileButton';
+import {
+  IconSettings,
+  IconSun,
+  IconMoon,
+  IconClose,
+  IconDashboard,
+  IconIngestion,
+  IconLicense,
+} from './SvgIcons';
 
 export const AppHeader: React.FC = () => {
   const { colors, mode, toggleTheme } = useTheme();
@@ -133,11 +142,14 @@ export const AppHeader: React.FC = () => {
                 backgroundColor: colors.surfaceSecondary,
                 borderColor: colors.surfaceBorder,
                 marginRight: 8,
+                flexDirection: 'row',
+                alignItems: 'center',
               },
             ]}
           >
-            <Text style={[styles.themeButtonText, { color: colors.accentPrimary }]}>
-              ⚙️ CONFIG
+            <IconSettings size={15} color={colors.accentPrimary} />
+            <Text style={[styles.themeButtonText, { color: colors.accentPrimary, marginLeft: 6 }]}>
+              CONFIG
             </Text>
           </TouchableOpacity>
 
@@ -152,30 +164,22 @@ export const AppHeader: React.FC = () => {
               {
                 backgroundColor: colors.surfaceSecondary,
                 borderColor: colors.surfaceBorder,
+                flexDirection: 'row',
+                alignItems: 'center',
               },
             ]}
           >
-            <Text style={[styles.themeButtonText, { color: colors.accentPrimary }]}>
-              {mode === 'dark' ? '☀️ CLARO' : '🌙 OSCURO'}
+            {mode === 'dark' ? (
+              <IconSun size={15} color={colors.accentPrimary} />
+            ) : (
+              <IconMoon size={15} color={colors.accentPrimary} />
+            )}
+            <Text style={[styles.themeButtonText, { color: colors.accentPrimary, marginLeft: 6 }]}>
+              {mode === 'dark' ? 'CLARO' : 'OSCURO'}
             </Text>
           </TouchableOpacity>
         </View>
       </View>
-
-      {/* Return to Dashboard Banner if navigating outside main after onboarding */}
-      {onboardingStep === 'completed' && activeSection !== 'dashboard' && (
-        <TouchableOpacity
-          onPress={() => setActiveSection('dashboard')}
-          style={[
-            styles.returnBanner,
-            { backgroundColor: colors.accentPrimary, borderColor: colors.surfaceBorder },
-          ]}
-        >
-          <Text style={styles.returnBannerText}>
-            ← VOLVER AL TABLERO ANALÍTICO PRINCIPAL
-          </Text>
-        </TouchableOpacity>
-      )}
 
       {/* LAN Configuration Modal */}
       <Modal
@@ -184,19 +188,38 @@ export const AppHeader: React.FC = () => {
         animationType="fade"
         onRequestClose={() => setModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => setModalVisible(false)}
+          style={styles.modalOverlay}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
             style={[
               styles.modalCard,
               { backgroundColor: colors.surface, borderColor: colors.surfaceBorder },
             ]}
           >
-            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-              Configuración & Gestión POS
-            </Text>
-            <Text style={[styles.modalDescription, { color: colors.textSecondary }]}>
-              Gestione los módulos del sistema y el Host/Puerto del backend FastAPI local.
-            </Text>
+            {/* Modal Header with Close Button ✕ */}
+            <View style={styles.modalHeaderRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                  Configuración & Gestión POS
+                </Text>
+                <Text style={[styles.modalDescription, { color: colors.textSecondary }]}>
+                  Gestione los módulos del sistema y el Host/Puerto del backend FastAPI local.
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setModalVisible(false)}
+                accessibilityLabel="Cerrar modal"
+                accessibilityRole="button"
+                style={[styles.closeModalBtn, { borderColor: colors.surfaceBorder }]}
+              >
+                <IconClose size={18} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
 
             {onboardingStep === 'completed' && (
               <View style={styles.navSection}>
@@ -204,19 +227,22 @@ export const AppHeader: React.FC = () => {
                   MÓDULOS DE LA TERMINAL
                 </Text>
                 <TactileButton
-                  title="📊 Tablero Analítico (Principal)"
+                  title="Tablero Analítico (Principal)"
+                  icon={<IconDashboard size={16} color={activeSection === 'dashboard' ? '#FFFFFF' : colors.textPrimary} />}
                   variant={activeSection === 'dashboard' ? 'primary' : 'outline'}
                   onPress={() => navigateToSection('dashboard')}
                   style={{ marginBottom: 8 }}
                 />
                 <TactileButton
-                  title="📥 Monitor de Ingesta & Auditoría"
+                  title="Monitor de Ingesta & Auditoría"
+                  icon={<IconIngestion size={16} color={activeSection === 'ingestion' ? '#FFFFFF' : colors.textPrimary} />}
                   variant={activeSection === 'ingestion' ? 'primary' : 'outline'}
                   onPress={() => navigateToSection('ingestion')}
                   style={{ marginBottom: 8 }}
                 />
                 <TactileButton
-                  title="🔑 Gestión de Licencia & EULA"
+                  title="Gestión de Licencia & EULA"
+                  icon={<IconLicense size={16} color={activeSection === 'license' ? '#FFFFFF' : colors.textPrimary} />}
                   variant={activeSection === 'license' ? 'primary' : 'outline'}
                   onPress={() => navigateToSection('license')}
                   style={{ marginBottom: 14 }}
@@ -312,8 +338,8 @@ export const AppHeader: React.FC = () => {
                 style={{ flex: 1 }}
               />
             </View>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     </>
   );
@@ -396,14 +422,26 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     padding: 20,
   },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  closeModalBtn: {
+    padding: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    marginLeft: 12,
+  },
   modalTitle: {
     fontSize: typography.fontSize.xl,
     fontWeight: typography.fontWeight.bold,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   modalDescription: {
     fontSize: typography.fontSize.sm,
-    marginBottom: 16,
+    marginBottom: 12,
     lineHeight: 18,
   },
   inputGroup: {
@@ -454,20 +492,6 @@ const styles = StyleSheet.create({
   modalButtonsRow: {
     flexDirection: 'row',
     marginTop: 8,
-  },
-  returnBanner: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderBottomWidth: 1,
-  },
-  returnBannerText: {
-    color: '#FFFFFF',
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.bold,
-    letterSpacing: 0.8,
-    fontFamily: typography.fontFamilyMono,
   },
   navSection: {
     marginBottom: 16,

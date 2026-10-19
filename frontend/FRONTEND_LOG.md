@@ -247,3 +247,33 @@ export interface ToastContextType {
   3. Al completar carga de archivo o conexión de BD $\rightarrow$ Toast de confirmación y transición definitiva a Pantalla 3 (Tablero Analítico).
   4. Apertura del panel `⚙️ CONFIG` $\rightarrow$ Acceso a Licencia e Ingesta con banner visible de retorno al Tablero.
 - Auto-ocultado de toasts validado tras 3.5 segundos con desvanecimiento animado.
+
+---
+
+## Sección 7: Refinamiento Tipográfico WCAG, Iconografía Vectorial SVG (Cero Emojis), Descargas Reales y Alineación de Tablas
+**Fecha:** 2026-10-18
+
+### 1. Archivos Creados / Modificados
+- `src/theme/theme.ts`: Ajuste proporcional de escala tipográfica (`xs: 12`, `sm: 14`, `base: 16`, `lg: 19`, `xl: 23`, `xxl: 27`, `metric: 32`).
+- `src/components/common/SvgIcons.tsx`: Suite vectorial completa en `react-native-svg` (`IconClose`, `IconSettings`, `IconDashboard`, `IconIngestion`, `IconLicense`, `IconSun`, `IconMoon`, `IconFilePdf`, `IconFileExcel`, `IconCheck`, `IconWarning`, `IconDatabase`, `IconArrowLeft`).
+- `src/utils/fileDownloader.ts`: Generador y descargador en memoria de archivos Excel (.csv con BOM UTF-8) e informes ejecutivos imprimibles PDF (HTML dinámico en ventana desacoplada).
+- `src/components/common/AppHeader.tsx`: Incorporación de botón "✕" de cierre en el modal de configuración, cierre por toque fuera del modal, iconos SVG y acceso directo a secciones sin rehacer pasos.
+- `src/navigation/RootNavigator.tsx`: Sub-barra de navegación superior fija (`subNavBar`) para alternar entre Tablero Analítico, Licencia & EULA e Ingesta & Auditoría tras completar el onboarding.
+- `src/screens/SetupLicenseScreen.tsx`: Selector dinámico de planes demo (Pro vs Starter) con resaltado táctil y guardado no bloqueante en modo configuración.
+- `src/screens/IngestionAuditScreen.tsx`: Sustitución total de emojis por iconos SVG limpios y guardado persistente sin rebloqueo.
+- `src/screens/AnalyticsDashboardScreen.tsx`: Vinculación de botones de descarga a generadores reales en memoria (`downloadRealExcel` y `downloadRealPdf`).
+- `src/components/tables/ParetoTable.tsx`: Reestructuración con contenedores `<View>` de proporción flex fija para alinear encabezados numéricos y datos sin superposición.
+- `src/components/tables/SellersTable.tsx`: Alineación precisa de columnas de porcentaje y montos monetarios con anchos relativos consistentes.
+- `src/context/ToastContext.tsx`: Iconografía de estado migrada a vectores SVG.
+
+### 2. Propósito Arquitectónico
+- Eliminación de emojis de plataforma: garantiza renderizado idéntico y sobrio en Android, iOS, Windows y Web.
+- Sincronización Flexbox en tablas: en React Native, la alineación de texto requiere contenedores de columna explícitos para emparejar encabezados y celdas sin distorsión de zoom.
+- Exportación local no bloqueante: generación binaria/DOM directa sin dependencias privativas ni llamadas a servicios en la nube (OWASP compliant).
+
+### 3. Casos de Prueba / Verificación
+- Verificación estricta TypeScript (`npx tsc --noEmit`): 0 errores.
+- Descarga de Excel: genera y descarga archivo `reporte_analitico_tidyddata.csv` en el navegador.
+- Informe PDF: genera e invoca cuadro de impresión/PDF del sistema con KPIs ejecutivos y tablas formateadas.
+- Modal de configuración: se cierra con el botón "✕" y con toque en el overlay externo.
+- Tablas Pareto y Vendedores: columnas perfectamente alineadas horizontalmente y legibles en cualquier tamaño de pantalla.

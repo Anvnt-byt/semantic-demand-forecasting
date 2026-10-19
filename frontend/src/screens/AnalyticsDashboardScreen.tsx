@@ -36,6 +36,8 @@ import { DemandForecastSvgChart } from '../components/charts/DemandForecastSvgCh
 import { TemporalComparisonChart } from '../components/charts/TemporalComparisonChart';
 import { ParetoTable } from '../components/tables/ParetoTable';
 import { SellersTable } from '../components/tables/SellersTable';
+import { IconFileExcel, IconFilePdf } from '../components/common/SvgIcons';
+import { downloadRealExcel, downloadRealPdf } from '../utils/fileDownloader';
 
 export const AnalyticsDashboardScreen: React.FC = () => {
   const { colors } = useTheme();
@@ -156,8 +158,8 @@ export const AnalyticsDashboardScreen: React.FC = () => {
 
     setExportLoading('excel');
     try {
-      const res = await exportExcelApi();
-      showToast(`Excel descargado en memoria: ${res.filename}`, { type: 'success', durationMs: 4000 });
+      const filename = downloadRealExcel();
+      showToast(`Archivo generado y descargado: ${filename}`, { type: 'success', durationMs: 4000 });
     } catch (err: unknown) {
       const errorObj = err as { message?: string };
       showToast(errorObj.message || 'Error al exportar a Excel.', { type: 'error' });
@@ -176,8 +178,8 @@ export const AnalyticsDashboardScreen: React.FC = () => {
 
     setExportLoading('pdf');
     try {
-      const res = await exportPdfApi();
-      showToast(`Informe PDF descargado en memoria: ${res.filename}`, { type: 'success', durationMs: 4000 });
+      const filename = downloadRealPdf();
+      showToast(`Informe PDF generado: ${filename}`, { type: 'success', durationMs: 4000 });
     } catch (err: unknown) {
       const errorObj = err as { message?: string };
       showToast(errorObj.message || 'Error al exportar a PDF.', { type: 'error' });
@@ -192,7 +194,7 @@ export const AnalyticsDashboardScreen: React.FC = () => {
       contentContainerStyle={styles.contentContainer}
     >
       <View style={styles.header}>
-        <View>
+        <View style={{ flex: 1, minWidth: 260 }}>
           <Text style={[styles.title, { color: colors.textPrimary }]}>
             Tablero Analítico & Demanda Predictiva
           </Text>
@@ -205,6 +207,7 @@ export const AnalyticsDashboardScreen: React.FC = () => {
         <View style={styles.exportBar}>
           <TactileButton
             title="Excel (PowerBI)"
+            icon={<IconFileExcel size={15} color={colors.accentPrimary} />}
             variant="outline"
             loading={exportLoading === 'excel'}
             onPress={handleExportExcel}
@@ -212,6 +215,7 @@ export const AnalyticsDashboardScreen: React.FC = () => {
           />
           <TactileButton
             title="Informe PDF"
+            icon={<IconFilePdf size={15} color={colors.textPrimary} />}
             variant="secondary"
             loading={exportLoading === 'pdf'}
             onPress={handleExportPdf}

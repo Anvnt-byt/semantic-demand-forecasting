@@ -13,11 +13,21 @@ export const SellersTable: React.FC<SellersTableProps> = ({ data }) => {
 
   const renderHeader = () => (
     <View style={[styles.headerRow, { backgroundColor: colors.surfaceSecondary, borderColor: colors.surfaceBorder }]}>
-      <Text style={[styles.colRank, styles.headerText, { color: colors.textMuted }]}>POS</Text>
-      <Text style={[styles.colName, styles.headerText, { color: colors.textMuted }]}>VENDEDOR</Text>
-      <Text style={[styles.colShare, styles.headerText, { color: colors.textMuted }]}>APORTE TIENDA</Text>
-      <Text style={[styles.colTickets, styles.headerText, { color: colors.textMuted }]}>TICKETS</Text>
-      <Text style={[styles.colAverage, styles.headerText, { color: colors.textMuted }]}>TICKET PROM.</Text>
+      <View style={styles.colRank}>
+        <Text style={[styles.headerText, styles.textCenter, { color: colors.textMuted }]}>POS</Text>
+      </View>
+      <View style={styles.colName}>
+        <Text style={[styles.headerText, { color: colors.textMuted }]}>VENDEDOR</Text>
+      </View>
+      <View style={styles.colShare}>
+        <Text style={[styles.headerText, styles.textRight, { color: colors.textMuted }]}>APORTE TIENDA</Text>
+      </View>
+      <View style={styles.colTickets}>
+        <Text style={[styles.headerText, styles.textRight, { color: colors.textMuted }]}>TICKETS</Text>
+      </View>
+      <View style={styles.colAverage}>
+        <Text style={[styles.headerText, styles.textRight, { color: colors.textMuted }]}>TICKET PROM.</Text>
+      </View>
     </View>
   );
 
@@ -133,30 +143,47 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamilyMono,
     letterSpacing: 0.5,
   },
+  textCenter: {
+    textAlign: 'center',
+    width: '100%',
+  },
+  textRight: {
+    textAlign: 'right',
+    width: '100%',
+  },
   row: {
     flexDirection: 'row',
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 12,
     borderBottomWidth: 1,
     alignItems: 'center',
   },
+  // Precise columns matching headers perfectly
   colRank: {
     flex: 0.8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   colName: {
     flex: 2.2,
+    justifyContent: 'center',
+    paddingRight: 8,
   },
   colShare: {
     flex: 2.2,
-    paddingRight: 10,
+    paddingRight: 14,
+    justifyContent: 'center',
   },
   colTickets: {
-    flex: 1.2,
+    flex: 1.4,
     alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingRight: 8,
   },
   colAverage: {
     flex: 1.6,
     alignItems: 'flex-end',
+    justifyContent: 'center',
   },
   rankBadge: {
     width: 28,
