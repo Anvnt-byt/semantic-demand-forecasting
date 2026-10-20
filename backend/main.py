@@ -11,8 +11,6 @@ from fastapi.responses import JSONResponse
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-from pipeline_semantico import procesar_csv_a_parquet
-from entrenar_modelo import generar_pronostico
 from database.connection import init_db
 from routers.ingestion_router import router as ingestion_router
 from routers.curation_router import router as curation_router
