@@ -4,6 +4,7 @@ import { useTheme } from '../../theme/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import { typography } from '../../theme/theme';
 import { useDataWranglerStore } from '../../store/useDataWranglerStore';
+import { InfoTooltip } from '../common/InfoTooltip';
 
 export const CleaningToolbar: React.FC = () => {
   const { colors } = useTheme();
@@ -223,7 +224,7 @@ export const CleaningToolbar: React.FC = () => {
       {activeTool === 'outlier' && (
         <View style={[styles.actionPanel, { backgroundColor: colors.surfaceHighlight }]}>
           <Text style={[styles.actionPrompt, { color: colors.textPrimary }]}>
-            Tratamiento de Outliers (Seleccione columna numérica):
+            Corregir Ventas Inusuales / Errores de Dedo:
           </Text>
           {/* Selector de columna numérica */}
           <View style={styles.columnChipsContainer}>
@@ -298,16 +299,22 @@ export const CleaningToolbar: React.FC = () => {
 
       {activeTool === 'impute' && (
         <View style={[styles.actionPanel, { backgroundColor: colors.surfaceHighlight }]}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <Text style={[styles.actionPrompt, { color: colors.textPrimary, marginBottom: 0 }]}>
-              Saneamiento de Valores Nulos / Vacíos:
-            </Text>
+          <View style={{ marginBottom: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <Text style={[styles.actionPrompt, { color: colors.textPrimary, marginBottom: 0 }]}>
+                Rellenar Celdas Vacías (Nulos):
+              </Text>
+              <InfoTooltip
+                technicalTitle="Imputación Estadística de Nulos"
+                technicalDescription="Imputa valores NaN/Null mediante estimadores de tendencia central: Mediana para variables asimétricas (precios o subtotales) y Moda o Media para cantidades."
+              />
+            </View>
             <TouchableOpacity
               onPress={handleBatchAutoImpute}
-              style={[styles.actionOptionBtn, { backgroundColor: colors.confidenceHigh, borderColor: colors.confidenceHigh }]}
+              style={[styles.actionOptionBtn, { backgroundColor: colors.confidenceHigh, borderColor: colors.confidenceHigh, width: '100%', alignItems: 'center', paddingVertical: 7, marginRight: 0, marginTop: 2 }]}
             >
-              <Text style={[styles.actionOptionText, { color: '#FFFFFF' }]}>
-                Auto-Imputar Todos los Nulos (Lote Completo)
+              <Text style={[styles.actionOptionText, { color: '#FFFFFF', textAlign: 'center' }]}>
+                Auto-Rellenar Todos los Vacíos
               </Text>
             </TouchableOpacity>
           </View>

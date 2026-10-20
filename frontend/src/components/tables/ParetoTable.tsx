@@ -4,6 +4,7 @@ import { InventoryItemPareto } from '../../types/analytics.types';
 import { useTheme } from '../../theme/ThemeContext';
 import { typography } from '../../theme/theme';
 import { MetricBadge } from '../common/MetricBadge';
+import { InfoTooltip } from '../common/InfoTooltip';
 
 interface ParetoTableProps {
   data: InventoryItemPareto[];
@@ -15,19 +16,25 @@ export const ParetoTable: React.FC<ParetoTableProps> = ({ data }) => {
   const renderHeader = () => (
     <View style={[styles.headerRow, { backgroundColor: colors.surfaceSecondary, borderColor: colors.surfaceBorder }]}>
       <View style={styles.colSku}>
-        <Text style={[styles.headerText, { color: colors.textMuted }]}>SKU / PRODUCTO</Text>
+        <Text style={[styles.headerText, { color: colors.textMuted }]}>PRODUCTO / CÓDIGO</Text>
       </View>
       <View style={styles.colClass}>
-        <Text style={[styles.headerText, styles.textCenter, { color: colors.textMuted }]}>ABC</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={[styles.headerText, styles.textCenter, { color: colors.textMuted }]}>VENTAS (ABC)</Text>
+          <InfoTooltip
+            technicalTitle="Clasificación ABC de Ventas"
+            technicalDescription="Regla de Pareto acumulativa: Clase A = Top 80% ingresos; Clase B = 15% ingresos; Clase C = 5% ingresos. Mide exclusivamente el peso financiero en ventas, no las existencias."
+          />
+        </View>
       </View>
       <View style={styles.colMetric}>
-        <Text style={[styles.headerText, styles.textRight, { color: colors.textMuted }]}>% APORTE</Text>
+        <Text style={[styles.headerText, styles.textRight, { color: colors.textMuted }]}>% FACTURACIÓN</Text>
       </View>
       <View style={styles.colStock}>
-        <Text style={[styles.headerText, styles.textRight, { color: colors.textMuted }]}>STOCK</Text>
+        <Text style={[styles.headerText, styles.textRight, { color: colors.textMuted }]}>EXISTENCIAS</Text>
       </View>
       <View style={styles.colAlerts}>
-        <Text style={[styles.headerText, styles.textRight, { color: colors.textMuted }]}>ESTADO</Text>
+        <Text style={[styles.headerText, styles.textRight, { color: colors.textMuted }]}>SALUD OPERATIVA</Text>
       </View>
     </View>
   );
@@ -61,25 +68,40 @@ export const ParetoTable: React.FC<ParetoTableProps> = ({ data }) => {
         <Text
           style={[
             styles.metricValue,
-            { color: item.alerta_reorden ? colors.alertCritical : colors.textPrimary },
+            { color: item.alerta_reorden ? colors.alertCritical : colors.textPrimary, fontWeight: 'bold' },
           ]}
         >
-          {item.stock_actual} / {item.stock_minimo}
+          {item.stock_actual} disp.
         </Text>
         <Text style={[styles.subMetric, { color: colors.textMuted }]}>
-          {item.dias_sin_venta}d s/venta
+          Mínimo: {item.stock_minimo} pzas
         </Text>
       </View>
 
       <View style={styles.colAlerts}>
-        {item.alerta_reorden && (
-          <MetricBadge type="alerta_reorden" label="REORDEN" />
-        )}
-        {item.es_stock_estancado && (
-          <MetricBadge type="stock_estancado" label="ESTANCADO" />
-        )}
-        {!item.alerta_reorden && !item.es_stock_estancado && (
-          <Text style={[styles.normalStatus, { color: colors.confidenceHigh }]}>Óptimo</Text>
+        {item.clasificacion_abc === 'A' && item.alerta_reorden ? (
+          <View style={{ alignItems: 'flex-end' }}>
+            <MetricBadge type="alerta_reorden" label="¡URGENTE RESURTIR!" />
+            <Text style={{ fontSize: 9, color: colors.alertCritical, marginTop: 2, fontWeight: 'bold' }}>
+              Producto estrella por agotarse
+            </Text>
+          </View>
+        ) : item.alerta_reorden ? (
+          <MetricBadge type="alerta_reorden" label="PEDIR A PROVEEDOR" />
+        ) : item.es_stock_estancado ? (
+          <View style={{ alignItems: 'flex-end' }}>
+            <MetricBadge type="stock_estancado" label="STOCK ESTANCADO" />
+            <Text style={{ fontSize: 9, color: colors.confidenceHeuristic, marginTop: 2 }}>
+              Sin venta en {item.dias_sin_venta || 30}d
+            </Text>
+          </View>
+        ) : (
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={[styles.normalStatus, { color: colors.confidenceHigh, fontWeight: 'bold' }]}>
+              Stock Saludable
+            </Text>
+            <Text style={{ fontSize: 9, color: colors.textMuted }}>Suficiente para demanda</Text>
+          </View>
         )}
       </View>
     </View>

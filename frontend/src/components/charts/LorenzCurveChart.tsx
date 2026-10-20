@@ -4,6 +4,7 @@ import Svg, { Line, Path, Circle, Rect, Text as SvgText } from 'react-native-svg
 import { InventoryItemPareto } from '../../types/analytics.types';
 import { useTheme } from '../../theme/ThemeContext';
 import { typography } from '../../theme/theme';
+import { InfoTooltip } from '../common/InfoTooltip';
 
 interface LorenzCurveChartProps {
   items: InventoryItemPareto[];
@@ -54,10 +55,12 @@ export const LorenzCurveChart: React.FC<LorenzCurveChartProps> = ({
   let prevX = 0;
   let prevY = 0;
 
+  // Asegurar suma acumulada monotónica precisa
+  let runningRev = 0;
   sorted.forEach((item, idx) => {
-    cumRev += item.pct_contribucion || 0;
+    runningRev += (item.pct_contribucion || 0);
     const pctSkus = ((idx + 1) / n) * 100;
-    const pctRev = Math.min(100, item.pct_acumulado || cumRev);
+    const pctRev = Math.min(100, Math.max(runningRev, item.pct_acumulado || 0));
 
     const xCoord = paddingLeft + (pctSkus / 100) * innerWidth;
     const yCoord = paddingTop + innerHeight - (pctRev / 100) * innerHeight;
@@ -104,17 +107,29 @@ export const LorenzCurveChart: React.FC<LorenzCurveChartProps> = ({
       {/* Badges de Diagnóstico Estadístico */}
       <View style={styles.metricsRow}>
         <View style={[styles.badgeCard, { backgroundColor: colors.surfaceSecondary, borderColor: colors.surfaceBorder }]}>
-          <Text style={[styles.badgeLabel, { color: colors.textMuted }]}>COEFICIENTE DE GINI</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={[styles.badgeLabel, { color: colors.textMuted }]}>DEPENDENCIA DE VENTAS (GINI)</Text>
+            <InfoTooltip
+              technicalTitle="Coeficiente de Gini Econométrico"
+              technicalDescription="Mide el grado de concentración en ingresos. Gini = 2 * (Área bajo la curva - 0.5). Valores mayores a 0.50 certifican que una minoría de productos estrella sostiene el flujo de caja del negocio."
+            />
+          </View>
           <Text style={[styles.badgeVal, { color: colors.accentPrimary }]}>{giniDisplay}</Text>
-          <Text style={[styles.badgeSub, { color: colors.textSecondary }]}>Alta concentración en Clase A</Text>
+          <Text style={[styles.badgeSub, { color: colors.textSecondary }]}>Alta dependencia en artículos estrella</Text>
         </View>
 
         <View style={[styles.badgeCard, { backgroundColor: colors.surfaceSecondary, borderColor: colors.surfaceBorder }]}>
-          <Text style={[styles.badgeLabel, { color: colors.textMuted }]}>REGLA DE PARETO 80/20</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={[styles.badgeLabel, { color: colors.textMuted }]}>CONCENTRACIÓN REGLA 80/20</Text>
+            <InfoTooltip
+              technicalTitle="Principio de Pareto (Ley 80/20)"
+              technicalDescription="Punto de corte en la curva de Lorenz donde el valor acumulado alcanza el 80% del ingreso monetario. Permite enfocar compras y auditorías en el 20-30% de SKUs más rentables."
+            />
+          </View>
           <Text style={[styles.badgeVal, { color: colors.confidenceHigh }]}>
-            {found80 ? `${Math.round(((pareto80X - paddingLeft) / innerWidth) * 100)}%` : '20%'} SKUs
+            {found80 ? `${Math.round(((pareto80X - paddingLeft) / innerWidth) * 100)}%` : '30%'} de tus productos
           </Text>
-          <Text style={[styles.badgeSub, { color: colors.textSecondary }]}>generan el 80% de los ingresos</Text>
+          <Text style={[styles.badgeSub, { color: colors.textSecondary }]}>aportan el 80% de toda la facturación</Text>
         </View>
       </View>
 

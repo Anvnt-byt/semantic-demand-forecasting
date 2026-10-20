@@ -4,6 +4,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { typography } from '../theme/theme';
 import { TactileCard } from '../components/common/TactileCard';
 import { ParetoTable } from '../components/tables/ParetoTable';
+import { InfoTooltip } from '../components/common/InfoTooltip';
 import { LorenzCurveChart } from '../components/charts/LorenzCurveChart';
 import { getInventoryTurnoverApi } from '../api/endpoints/analyticsApi';
 import { InventoryItemPareto } from '../types/analytics.types';
@@ -61,10 +62,10 @@ export const InventoryAnalyticsScreen: React.FC = () => {
       <View style={styles.header}>
         <View>
           <Text style={[styles.title, { color: colors.textPrimary }]}>
-            INVENTARIO & CURVA DE LORENZ (PARETO ABC)
+            SALUD DE INVENTARIO Y PRODUCTOS MÁS VENDIDOS
           </Text>
           <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-            Clasificación cuantitativa estricta con corrección de desplazamiento y alertas tempranas de reposición.
+            Identifica cuáles productos generan el dinero del negocio (Regla 80/20) y cuáles están en riesgo de agotarse.
           </Text>
         </View>
 
@@ -73,25 +74,77 @@ export const InventoryAnalyticsScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Resumen de Categorías ABC */}
+      {/* Resumen de Categorías ABC - Grandes y Visibles */}
       {items.length > 0 && (
-        <View style={styles.summaryGrid}>
-          <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
-            <Text style={[styles.summaryLabel, { color: colors.confidenceHigh }]}>CLASE A (80% FACTURACIÓN)</Text>
-            <Text style={[styles.summaryVal, { color: colors.textPrimary }]}>{resumenAbc.A} SKUs</Text>
-            <Text style={[styles.summaryHelp, { color: colors.textMuted }]}>Artículos de mayor impacto en facturación</Text>
+        <View style={{ marginBottom: 14 }}>
+          {/* Banner de Clarificación Gerencial */}
+          <View style={{ backgroundColor: 'rgba(56, 189, 248, 0.08)', borderWidth: 1, borderColor: colors.accentPrimary, padding: 12, borderRadius: 8, marginBottom: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+              <Text style={{ fontSize: typography.fontSize.xs, fontWeight: 'bold', color: colors.accentPrimary }}>
+                GUÍA RÁPIDA: ¿CÓMO INTERPRETAR LA CLASIFICACIÓN A, B Y C?
+              </Text>
+              <InfoTooltip
+                technicalTitle="Fundamento Econométrico ABC"
+                technicalDescription="Metodología Pareto (80-15-5): Ordena el universo de artículos de mayor a menor contribución a los ingresos brutos. Permite concentrar el esfuerzo de inventario donde reside el valor comercial real."
+              />
+            </View>
+            <Text style={{ fontSize: typography.fontSize.xs, color: colors.textSecondary, lineHeight: 18 }}>
+              La letra mide el <Text style={{ fontWeight: 'bold', color: colors.textPrimary }}>VOLUMEN DE VENTAS</Text>, no si tienes mucho o poco stock. Un producto <Text style={{ fontWeight: 'bold', color: colors.confidenceHigh }}>Clase A</Text> con pocas existencias es una <Text style={{ fontWeight: 'bold', color: colors.alertCritical }}>alerta roja</Text>: significa que tu artículo más vendido está a punto de agotarse.
+            </Text>
           </View>
 
-          <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
-            <Text style={[styles.summaryLabel, { color: colors.accentPrimary }]}>CLASE B (15% FACTURACIÓN)</Text>
-            <Text style={[styles.summaryVal, { color: colors.textPrimary }]}>{resumenAbc.B} SKUs</Text>
-            <Text style={[styles.summaryHelp, { color: colors.textMuted }]}>Artículos de rotación intermedia</Text>
-          </View>
+          {/* Tarjetas Grandes y Pedagógicas */}
+          <View style={styles.summaryGrid}>
+            <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.confidenceHigh, borderWidth: 1.5 }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={[styles.summaryLabel, { color: colors.confidenceHigh, fontSize: 11 }]}>CLASE A • PRODUCTOS ESTRELLA</Text>
+                <InfoTooltip
+                  technicalTitle="Clase A: Vitales"
+                  technicalDescription="Acumula el 80% del valor total facturado. Requiere política estricta de stock de seguridad, revisión semanal y resurtido prioritario."
+                />
+              </View>
+              <Text style={[styles.summaryVal, { color: colors.confidenceHigh, fontSize: typography.fontSize.xxl }]}>{resumenAbc.A} Artículos</Text>
+              <Text style={[styles.summaryHelp, { color: colors.textPrimary, fontWeight: '600', marginBottom: 4 }]}>
+                Aportan el 80% de tus ingresos
+              </Text>
+              <Text style={{ fontSize: 10, color: colors.textSecondary, lineHeight: 14 }}>
+                Son los productos clave de tu tienda. Si te quedas sin ellos, pierdes clientes y ventas al instante.
+              </Text>
+            </View>
 
-          <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
-            <Text style={[styles.summaryLabel, { color: colors.confidenceHeuristic }]}>CLASE C (5% FACTURACIÓN)</Text>
-            <Text style={[styles.summaryVal, { color: colors.textPrimary }]}>{resumenAbc.C} SKUs</Text>
-            <Text style={[styles.summaryHelp, { color: colors.textMuted }]}>Artículos de baja rotación relativa</Text>
+            <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.accentPrimary, borderWidth: 1.5 }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={[styles.summaryLabel, { color: colors.accentPrimary, fontSize: 11 }]}>CLASE B • VARIEDAD CONSTANTE</Text>
+                <InfoTooltip
+                  technicalTitle="Clase B: Intermedios"
+                  technicalDescription="Acumula entre el 80% y 95% de la facturación. Demanda estable pero moderada. Se controla con pedidos estándar por lote."
+                />
+              </View>
+              <Text style={[styles.summaryVal, { color: colors.accentPrimary, fontSize: typography.fontSize.xxl }]}>{resumenAbc.B} Artículos</Text>
+              <Text style={[styles.summaryHelp, { color: colors.textPrimary, fontWeight: '600', marginBottom: 4 }]}>
+                Aportan el 15% de tus ingresos
+              </Text>
+              <Text style={{ fontSize: 10, color: colors.textSecondary, lineHeight: 14 }}>
+                Productos de venta intermedia que complementan la canasta de compra. Mantener existencias equilibradas.
+              </Text>
+            </View>
+
+            <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.confidenceHeuristic, borderWidth: 1.5 }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={[styles.summaryLabel, { color: colors.confidenceHeuristic, fontSize: 11 }]}>CLASE C • OCASIONALES O RELLENO</Text>
+                <InfoTooltip
+                  technicalTitle="Clase C: Cola Larga (Long-Tail)"
+                  technicalDescription="Acumula solo el 5% restante del flujo de caja. Alto riesgo de capital inmovilizado. Se recomienda compra bajo pedido (JIT) y lotes mínimos."
+                />
+              </View>
+              <Text style={[styles.summaryVal, { color: colors.confidenceHeuristic, fontSize: typography.fontSize.xxl }]}>{resumenAbc.C} Artículos</Text>
+              <Text style={[styles.summaryHelp, { color: colors.textPrimary, fontWeight: '600', marginBottom: 4 }]}>
+                Aportan solo el 5% de tus ingresos
+              </Text>
+              <Text style={{ fontSize: 10, color: colors.textSecondary, lineHeight: 14 }}>
+                Artículos de rotación baja. Cuidado con comprar de más para no congelar dinero innecesariamente en bodega.
+              </Text>
+            </View>
           </View>
         </View>
       )}
@@ -100,10 +153,10 @@ export const InventoryAnalyticsScreen: React.FC = () => {
       {items.length > 0 && (
         <TactileCard>
           <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-            CURVA DE LORENZ & COEFICIENTE DE GINI (CONCENTRACIÓN DE FACTURACIÓN)
+            GRÁFICA DE CONCENTRACIÓN DE VENTAS (REGLA 80/20)
           </Text>
           <Text style={[styles.cardHelp, { color: colors.textMuted }]}>
-            Análisis econométrico de concentración del portafolio: % acumulado de catálogo vs. % acumulado de ingresos.
+            Ilustra visualmente qué porcentaje de tus artículos concentra la mayor parte del dinero que ingresa a caja.
           </Text>
           <LorenzCurveChart items={items} />
         </TactileCard>

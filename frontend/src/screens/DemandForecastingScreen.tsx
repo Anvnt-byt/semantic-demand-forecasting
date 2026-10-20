@@ -5,6 +5,7 @@ import { typography } from '../theme/theme';
 import { TactileCard } from '../components/common/TactileCard';
 import { TactileButton } from '../components/common/TactileButton';
 import { MetricBadge } from '../components/common/MetricBadge';
+import { InfoTooltip } from '../components/common/InfoTooltip';
 import { DemandForecastSvgChart } from '../components/charts/DemandForecastSvgChart';
 import { predictDemandApi } from '../api/endpoints/analyticsApi';
 import { PredictDemandResponse, ForecastPoint } from '../types/analytics.types';
@@ -41,6 +42,8 @@ const CATALOG_28_SKUS = [
   { sku: 'SKU-PER-03', name: 'Crema Dental Triple Acción 100ml (Cuidado Personal • Maduro LightGBM)' },
 ];
 
+const DEPARTMENTS = ['TODOS', 'Bebidas', 'Lácteos', 'Abarrotes', 'Snacks', 'Limpieza', 'Cuidado Personal'];
+
 export const DemandForecastingScreen: React.FC = () => {
   const { colors } = useTheme();
   const { useMocks, setPipelineStep } = useConfigStore();
@@ -50,12 +53,13 @@ export const DemandForecastingScreen: React.FC = () => {
   const [horizon, setHorizon] = useState<7 | 14 | 30>(14);
   const [selectedSku, setSelectedSku] = useState('SKU-BEV-01');
   const [skuSearch, setSkuSearch] = useState('');
+  const [selectedDept, setSelectedDept] = useState('TODOS');
 
-  const filteredSkus = CATALOG_28_SKUS.filter(
-    (item) =>
-      item.sku.toLowerCase().includes(skuSearch.toLowerCase()) ||
-      item.name.toLowerCase().includes(skuSearch.toLowerCase())
-  );
+  const filteredSkus = CATALOG_28_SKUS.filter((item) => {
+    const matchesDept = selectedDept === 'TODOS' || item.name.toLowerCase().includes(selectedDept.toLowerCase());
+    const matchesSearch = item.sku.toLowerCase().includes(skuSearch.toLowerCase()) || item.name.toLowerCase().includes(skuSearch.toLowerCase());
+    return matchesDept && matchesSearch;
+  });
 
   useEffect(() => {
     runForecast();
@@ -83,7 +87,7 @@ export const DemandForecastingScreen: React.FC = () => {
         <View>
           <View style={styles.titleBadgeRow}>
             <Text style={[styles.title, { color: colors.textPrimary }]}>
-              PREVISIÓN DE DEMANDA & DIMENSIONAMIENTO DE STOCK
+              CÁLCULO DE VENTAS FUTURAS Y REPOSICIÓN
             </Text>
             {forecast && (
               <MetricBadge
@@ -93,20 +97,59 @@ export const DemandForecastingScreen: React.FC = () => {
             )}
           </View>
           <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-            Inferencia de demanda con intervalos conformales al 80% (p10 / p90) y cálculo de punto de pedido (ROP) por Lead Time.
+            Estima cuántas piezas venderás para saber exactamente cuánto pedir a tus proveedores sin quedarte sin mercancía.
           </Text>
         </View>
       </View>
 
       {/* Selector de Producto */}
       <TactileCard>
-        <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
-          CATÁLOGO EMPRESARIAL (28 SKUS EN 6 DEPARTAMENTOS) • SELECCIONE PRODUCTO:
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <Text style={[styles.sectionTitle, { color: colors.textMuted, marginBottom: 0 }]}>
+            SELECCIONE DEPARTAMENTO Y ARTÍCULO A PROYECTAR:
+          </Text>
+          <InfoTooltip
+            technicalTitle="Inferencia Supervisada LightGBM"
+            technicalDescription="Modelo autorregresivo multivariado con retardos temporales (lags 1, 7, 14, 28) e intervalos conformales p10/p90. Se ejecuta 100% en la CPU local sin enviar datos a la nube."
+          />
+        </View>
+
+        {/* Filtro por Departamento / Tipo */}
+        <View style={{ marginBottom: 10 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row' }}>
+            {DEPARTMENTS.map(dept => {
+              const isSelected = selectedDept === dept;
+              return (
+                <TouchableOpacity
+                  key={dept}
+                  onPress={() => {
+                    setSelectedDept(dept);
+                    const firstInDept = CATALOG_28_SKUS.find(i => dept === 'TODOS' || i.name.toLowerCase().includes(dept.toLowerCase()));
+                    if (firstInDept) setSelectedSku(firstInDept.sku);
+                  }}
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 6,
+                    borderWidth: 1,
+                    marginRight: 6,
+                    backgroundColor: isSelected ? colors.accentPrimary : colors.surfaceSecondary,
+                    borderColor: isSelected ? colors.accentPrimary : colors.surfaceBorder,
+                  }}
+                >
+                  <Text style={{ fontSize: 11, fontWeight: 'bold', color: isSelected ? '#FFFFFF' : colors.textPrimary }}>
+                    {dept.toUpperCase()}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
         <TextInput
           value={skuSearch}
           onChangeText={setSkuSearch}
-          placeholder="Filtrar por SKU o nombre (ej. Cerveza, Refresco, Leche, Pan, Aceite, Jabón)..."
+          placeholder="Buscar por código SKU o nombre de producto..."
           placeholderTextColor={colors.textMuted}
           style={[styles.skuSearchInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.textPrimary }]}
         />

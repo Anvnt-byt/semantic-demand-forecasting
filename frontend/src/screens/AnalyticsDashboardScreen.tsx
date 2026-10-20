@@ -14,12 +14,14 @@ import {
   getKpisApi,
   getTemporalComparisonApi,
   getInventoryTurnoverApi,
+  getSellersApi,
 } from '../api/endpoints/analyticsApi';
 import {
   KpiMetrics,
   TemporalComparisonResponse,
   TemporalGranularity,
   InventoryItemPareto,
+  SellerPerformance,
 } from '../types/analytics.types';
 import { typography } from '../theme/theme';
 import { TactileCard } from '../components/common/TactileCard';
@@ -28,6 +30,8 @@ import { MetricBadge } from '../components/common/MetricBadge';
 import { ErrorBanner, BannerMessage } from '../components/common/ErrorBanner';
 import { TemporalComparisonChart } from '../components/charts/TemporalComparisonChart';
 import { CategoryBreakdownTable } from '../components/tables/CategoryBreakdownTable';
+import { SellersTable } from '../components/tables/SellersTable';
+import { InfoTooltip } from '../components/common/InfoTooltip';
 import {
   IconFileExcel,
   IconFilePdf,
@@ -50,6 +54,7 @@ export const AnalyticsDashboardScreen: React.FC = () => {
   const [kpis, setKpis] = useState<KpiMetrics | null>(null);
   const [granularity, setGranularity] = useState<TemporalGranularity>('mes');
   const [temporalData, setTemporalData] = useState<TemporalComparisonResponse | null>(null);
+  const [sellers, setSellers] = useState<SellerPerformance[]>([]);
   const [inventorySummary, setInventorySummary] = useState<{ totalSkus: number; reorderCount: number }>({
     totalSkus: 0,
     reorderCount: 0,
@@ -157,10 +162,10 @@ export const AnalyticsDashboardScreen: React.FC = () => {
       <View style={styles.header}>
         <View style={{ flex: 1, minWidth: 260 }}>
           <Text style={[styles.title, { color: colors.textPrimary }]}>
-            Tablero Analítico General
+            Panel de Control del Negocio (Resumen Gerencial)
           </Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Consolidado de facturación, comparativas periódicas y distribución por categoría.
+            Monitoreo ejecutivo de ventas en tienda, clientes atendidos, rotación y colaboradores en caja.
           </Text>
         </View>
 
@@ -212,11 +217,17 @@ export const AnalyticsDashboardScreen: React.FC = () => {
         </View>
       )}
 
-      {/* 1. KPIs Ejecutivos Principales */}
+      {/* 1. KPIs Ejecutivos Principales en Lenguaje de Negocio */}
       {kpis && (
         <View style={styles.kpiGrid}>
           <TactileCard style={styles.kpiCard}>
-            <Text style={[styles.kpiLabel, { color: colors.textMuted }]}>VENTAS DEL MES</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={[styles.kpiLabel, { color: colors.textMuted }]}>INGRESOS DEL MES</Text>
+              <InfoTooltip
+                technicalTitle="Facturación Bruta Mensual"
+                technicalDescription="Suma neta de ventas registradas en caja durante el mes actual: SUM(cantidad * precio_unitario). Compara contra el mismo día del período previo."
+              />
+            </View>
             <Text style={[styles.kpiValue, { color: colors.textPrimary }]}>
               ${kpis.ventas_mes.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
             </Text>
@@ -225,28 +236,49 @@ export const AnalyticsDashboardScreen: React.FC = () => {
                 +{kpis.crecimiento_mensual_pct}% vs mes anterior
               </Text>
             </View>
+            <Text style={{ fontSize: 10, color: colors.textSecondary, marginTop: 4 }}>
+              Total de dinero cobrado en caja
+            </Text>
           </TactileCard>
 
           <TactileCard style={styles.kpiCard}>
-            <Text style={[styles.kpiLabel, { color: colors.textMuted }]}>TRANSACCIONES</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={[styles.kpiLabel, { color: colors.textMuted }]}>CLIENTES ATENDIDOS</Text>
+              <InfoTooltip
+                technicalTitle="Conteo de Transacciones POS"
+                technicalDescription="Conteo único de tickets / facturas cerradas en el período: COUNT(DISTINCT id_venta). Mide tráfico y afluencia real de compradores."
+              />
+            </View>
             <Text style={[styles.kpiValue, { color: colors.textPrimary }]}>
-              {kpis.total_transacciones.toLocaleString()}
+              {kpis.total_transacciones.toLocaleString()} tickets
             </Text>
             <View style={styles.kpiDeltaRow}>
               <Text style={[styles.kpiDelta, { color: colors.confidenceHigh }]}>
-                +{kpis.crecimiento_diario_pct}% ritmo diario
+                +{kpis.crecimiento_diario_pct}% ritmo de cobro
               </Text>
             </View>
+            <Text style={{ fontSize: 10, color: colors.textSecondary, marginTop: 4 }}>
+              Notas de venta procesadas
+            </Text>
           </TactileCard>
 
           <TactileCard style={styles.kpiCard}>
-            <Text style={[styles.kpiLabel, { color: colors.textMuted }]}>TICKET PROMEDIO</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={[styles.kpiLabel, { color: colors.textMuted }]}>COMPRA PROMEDIO</Text>
+              <InfoTooltip
+                technicalTitle="Ticket Medio (AOV - Average Order Value)"
+                technicalDescription="Cociente de rendimiento transaccional: Total_Ingresos / Total_Tickets. Refleja la profundidad de canasta y efectividad de venta cruzada."
+              />
+            </View>
             <Text style={[styles.kpiValue, { color: colors.accentPrimary }]}>
               ${kpis.ticket_promedio.toFixed(2)}
             </Text>
             <View style={styles.kpiDeltaRow}>
-              <Text style={[styles.kpiSub, { color: colors.textMuted }]}>Cierre consolidado</Text>
+              <Text style={[styles.kpiSub, { color: colors.textMuted }]}>Por cliente en caja</Text>
             </View>
+            <Text style={{ fontSize: 10, color: colors.textSecondary, marginTop: 4 }}>
+              Gasto típico por cada visita
+            </Text>
           </TactileCard>
         </View>
       )}
@@ -256,10 +288,10 @@ export const AnalyticsDashboardScreen: React.FC = () => {
         <View style={styles.cardHeaderRow}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.cardTitle, { color: colors.accentPrimary }]}>
-              ESTADO OPERACIONAL CONSOLIDADO (100% ON-PREMISE)
+              SEMÁFORO DE SALUD DE INVENTARIO Y RESURTIDO
             </Text>
             <Text style={[styles.cardHelp, { color: colors.textSecondary }]}>
-              Base local procesada: {inventorySummary.totalSkus} SKUs activos en catálogo | {inventorySummary.reorderCount} productos requiriendo reposición de stock (ROP).
+              Catálogo activo: {inventorySummary.totalSkus} productos en tienda | {inventorySummary.reorderCount} artículos con existencias bajas que requieren pedido al proveedor.
             </Text>
           </View>
           <MetricBadge
@@ -274,10 +306,10 @@ export const AnalyticsDashboardScreen: React.FC = () => {
         <View style={styles.cardHeaderRow}>
           <View>
             <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-              COMPARATIVA TEMPORAL DE VENTAS
+              TENDENCIA Y EVOLUCIÓN HISTÓRICA DE VENTAS
             </Text>
             <Text style={[styles.cardHelp, { color: colors.textSecondary }]}>
-              Desempeño del período actual vs. período inmediato anterior.
+              Compare si la tienda está vendiendo más o menos que en el período anterior para detectar alzas o bajas.
             </Text>
           </View>
 
@@ -319,17 +351,45 @@ export const AnalyticsDashboardScreen: React.FC = () => {
       {/* 4. Distribución y Aporte por Categoría de Producto */}
       <TactileCard>
         <View style={styles.cardHeaderRow}>
-          <View>
-            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-              DISTRIBUCIÓN Y APORTE POR DEPARTAMENTO COMERCIAL
-            </Text>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
+                VENTAS POR DEPARTAMENTO COMERCIAL
+              </Text>
+              <InfoTooltip
+                technicalTitle="Contribución por Categoría"
+                technicalDescription="Agregación de ingresos brutos y cálculo de margen comercial estimado (Gross Margin %) por departamento en catálogo."
+              />
+            </View>
             <Text style={[styles.cardHelp, { color: colors.textSecondary }]}>
-              Aporte porcentual al volumen de ventas consolidado y margen bruto estimado por categoría.
+              ¿Cuáles áreas de tu tienda dejan más dinero y cuál es su porcentaje de ganancia estimado?
             </Text>
           </View>
         </View>
 
         <CategoryBreakdownTable />
+      </TactileCard>
+
+      {/* 5. Desempeño Histórico de Colaboradores y Cajas */}
+      <TactileCard>
+        <View style={styles.cardHeaderRow}>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
+                DESEMPEÑO HISTÓRICO DE COLABORADORES Y PUNTOS DE COBRO
+              </Text>
+              <InfoTooltip
+                technicalTitle="Auditoría de Productividad POS"
+                technicalDescription="Registro histórico 100% transaccional de ventas por cajero/terminal. Mide volumen monetario, notas cerradas y ticket promedio individual. Cero previsión estadística aplicada (estricto reporte histórico)."
+              />
+            </View>
+            <Text style={[styles.cardHelp, { color: colors.textSecondary }]}>
+              Productividad en caja: tickets cobrados, porcentaje aportado a las ventas de la tienda y compra promedio por colaborador.
+            </Text>
+          </View>
+        </View>
+
+        <SellersTable data={sellers} />
       </TactileCard>
 
       {/* Botón de Flujo: Paso Siguiente */}

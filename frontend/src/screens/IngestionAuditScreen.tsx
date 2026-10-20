@@ -234,7 +234,7 @@ export const IngestionAuditScreen: React.FC<IngestionAuditScreenProps> = ({ onCo
             CONEXIÓN NO INVASIVA A TERMINAL POS EXTERNO (SOLO LECTURA)
           </Text>
           <Text style={[styles.cardHelp, { color: colors.textMuted }]}>
-            El sistema ejecuta consultas SELECT exclusivas. Prohibido ejecutar DDL o DML en la base origen del cliente.
+            Tu sistema de cobro no corre ningún riesgo: la aplicación solo lee datos para el análisis, sin alterar nada.
           </Text>
 
           {/* Selector de Motor */}

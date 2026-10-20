@@ -5,6 +5,7 @@ import { typography } from '../theme/theme';
 import { TactileCard } from '../components/common/TactileCard';
 import { TactileButton } from '../components/common/TactileButton';
 import { MetricBadge } from '../components/common/MetricBadge';
+import { InfoTooltip } from '../components/common/InfoTooltip';
 import { useToast } from '../context/ToastContext';
 import { useLicenseStore } from '../store/useLicenseStore';
 import { useConfigStore } from '../store/useConfigStore';

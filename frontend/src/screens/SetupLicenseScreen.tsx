@@ -20,6 +20,7 @@ import { TactileButton } from '../components/common/TactileButton';
 import { MetricBadge } from '../components/common/MetricBadge';
 import { ErrorBanner, BannerMessage } from '../components/common/ErrorBanner';
 import { IconCheck } from '../components/common/SvgIcons';
+import { InfoTooltip } from '../components/common/InfoTooltip';
 
 interface SetupLicenseScreenProps {
   onSuccess?: () => void;
@@ -49,6 +50,8 @@ export const SetupLicenseScreen: React.FC<SetupLicenseScreenProps> = ({ onSucces
     onboardingStep,
     setOnboardingStep,
     setPipelineStep,
+    businessType,
+    setBusinessType,
   } = useConfigStore();
 
   const [inputKey, setInputKey] = useState(storedKey || 'POS-PRO-DEMO-2027');
@@ -353,6 +356,68 @@ export const SetupLicenseScreen: React.FC<SetupLicenseScreenProps> = ({ onSucces
               placeholderTextColor={colors.textMuted}
             />
           </View>
+        </View>
+      </TactileCard>
+
+      {/* Selector de Giro Comercial */}
+      <TactileCard>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 0 }]}>
+            GIRO COMERCIAL / TIPO DE NEGOCIO
+          </Text>
+          <InfoTooltip
+            technicalTitle="Estandarización y Calibración por Sector"
+            technicalDescription="Configura los supuestos de abastecimiento (lead times promedio, estacionalidad y granularidad de catálogo) según la dinámica operativa de tu industria."
+          />
+        </View>
+        <Text style={[{ fontSize: typography.fontSize.xs }, { color: colors.textSecondary, marginBottom: 12 }]}>
+          Seleccione el tipo de comercio para adaptar automáticamente la terminología y parámetros de inventario:
+        </Text>
+
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+          {[
+            { id: 'retail_grocery', title: 'Abarrotería / Minisúper', desc: 'Comestibles, bebidas y perecederos (Alta rotación, entrega en 1-3 días).' },
+            { id: 'automotive', title: 'Taller / Refaccionaria Automotriz', desc: 'Autopartes, piezas y lubricantes (Alto costo, entrega de 5-15 días).' },
+            { id: 'pharmacy', title: 'Farmacia y Salud', desc: 'Medicamentos y cuidado personal (Control estricto de rotación).' },
+            { id: 'hardware', title: 'Ferretería y Materiales', desc: 'Herramientas, construcción y tornillería (Catálogos extensos).' },
+            { id: 'fashion', title: 'Ropa, Calzado y Moda', desc: 'Prendas, calzado y accesorios (Ciclos de temporada).' },
+            { id: 'general', title: 'Comercio General / Otros', desc: 'Miscelánea, papelería o tienda mixta.' },
+          ].map((item) => {
+            const isSelected = businessType === item.id;
+            return (
+              <TouchableOpacity
+                key={item.id}
+                onPress={() => {
+                  setBusinessType(item.id as any);
+                  showToast(`Giro configurado: ${item.title}`, { type: 'info' });
+                }}
+                style={{
+                  width: '48.5%',
+                  minWidth: 240,
+                  padding: 12,
+                  borderRadius: 8,
+                  borderWidth: isSelected ? 2 : 1,
+                  borderColor: isSelected ? colors.accentPrimary : colors.surfaceBorder,
+                  backgroundColor: isSelected ? 'rgba(56, 189, 248, 0.08)' : colors.surfaceSecondary,
+                  marginBottom: 10,
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <Text style={{ fontSize: typography.fontSize.xs, fontWeight: 'bold', color: isSelected ? colors.accentPrimary : colors.textPrimary }}>
+                    {item.title}
+                  </Text>
+                  {isSelected && (
+                    <View style={{ backgroundColor: colors.accentPrimary, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                      <Text style={{ color: '#FFFFFF', fontSize: 9, fontWeight: 'bold' }}>ACTIVO</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={{ fontSize: 10, color: colors.textSecondary, lineHeight: 14 }}>
+                  {item.desc}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </TactileCard>
 

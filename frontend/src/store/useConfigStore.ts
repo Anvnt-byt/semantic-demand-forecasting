@@ -4,6 +4,7 @@ import * as SecureStore from 'expo-secure-store';
 export type OnboardingStep = 'license' | 'ingestion' | 'completed';
 export type DemoPipelineStep = 1 | 2 | 3 | 4 | 5;
 export type AnalyticsSubTab = 'dashboard' | 'inventory' | 'forecasting';
+export type BusinessType = 'retail_grocery' | 'automotive' | 'pharmacy' | 'hardware' | 'fashion' | 'general';
 export type ActiveSection =
   | 'dashboard'
   | 'studio'
@@ -25,6 +26,8 @@ interface ConfigState {
   analyticsSubTab: AnalyticsSubTab;
   onboardingStep: OnboardingStep;
   activeSection: ActiveSection;
+  businessType: BusinessType;
+  setBusinessType: (type: BusinessType) => void;
   setPipelineStep: (step: DemoPipelineStep) => void;
   setAnalyticsSubTab: (tab: AnalyticsSubTab) => void;
   completeDemoPipeline: () => void;
@@ -52,6 +55,14 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   analyticsSubTab: 'dashboard',
   onboardingStep: 'completed',
   activeSection: 'dashboard',
+  businessType: 'retail_grocery',
+  setBusinessType: (type: BusinessType) => {
+    set({ businessType: type });
+    try {
+      const { backendHost, backendPort, useMocks, onboardingStep } = get();
+      SecureStore.setItemAsync(CONFIG_STORAGE_KEY, JSON.stringify({ backendHost, backendPort, useMocks, onboardingStep, businessType: type }));
+    } catch {}
+  },
 
   setPipelineStep: (step: DemoPipelineStep) => {
     const currentMax = get().maxStepUnlocked;
@@ -152,6 +163,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
           backendHost: parsed.backendHost || 'http://127.0.0.1',
           backendPort: parsed.backendPort ? Number(parsed.backendPort) : 8000,
           useMocks: typeof parsed.useMocks === 'boolean' ? parsed.useMocks : true,
+          businessType: parsed.businessType || 'retail_grocery',
           onboardingStep: parsed.onboardingStep || 'license',
         });
       }

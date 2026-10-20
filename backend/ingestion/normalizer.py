@@ -48,18 +48,20 @@ VENTAS_SYNONYMS: Dict[str, List[str]] = {
     ],
     "id_vendedor": [
         "id_vendedor", "cod_vendedor", "vendedor_id", "seller_id", 
-        "salesperson_id", "cajero_id", "empleado_id", "user_id", "cve_vendedor"
+        "salesperson_id", "cajero_id", "empleado_id", "user_id", "cve_vendedor",
+        "caja", "caja_id", "num_caja", "terminal", "tpv", "pos_id", "estacion", "servicio_id", "modulo_id"
     ],
     "nombre_vendedor": [
         "nombre_vendedor", "vendedor", "salesperson", "cajero", "seller_name", 
-        "empleado", "nom_vendedor", "nom_cajero"
+        "empleado", "nom_vendedor", "nom_cajero", "nombre_caja", "num_caja", "mostrador", "servicio", "punto_cobro", "modulo"
     ],
 }
 
 INVENTARIO_SYNONYMS: Dict[str, List[str]] = {
     "sku": [
         "sku", "codigo", "cod_producto", "item_id", "product_id", "articulo", 
-        "cve_art", "id_producto", "codigo_barras", "item_code", "referencia"
+        "cve_art", "id_producto", "codigo_barras", "item_code", "referencia",
+        "num_parte", "numero_parte", "no_parte", "part_number", "refaccion"
     ],
     "stock_actual": [
         "stock_actual", "stock", "existencia", "existencias", "inventario", 
