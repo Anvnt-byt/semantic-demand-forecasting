@@ -1,4 +1,5 @@
 import os
+import time
 import sys
 import shutil
 import logging
@@ -103,6 +104,24 @@ def verify_api_key(api_key: str = Security(API_KEY_HEADER)):
 @app.get("/health")
 def health_check():
     return {"status": "healthy", "service": "pos-analytics-api"}
+
+last_heartbeat_time = None
+desktop_connected = False
+
+@app.get("/api/heartbeat")
+@app.post("/api/heartbeat")
+def heartbeat_endpoint():
+    global last_heartbeat_time, desktop_connected
+    last_heartbeat_time = time.time()
+    desktop_connected = True
+    return {"status": "alive"}
+
+@app.get("/api/shutdown")
+@app.post("/api/shutdown")
+def shutdown_endpoint():
+    logging.info("Recibida señal de cierre desde la ventana de escritorio.")
+    threading.Thread(target=lambda: (time.sleep(0.5), os._exit(0)), daemon=True).start()
+    return {"status": "shutting_down"}
 
 # Montaje de Frontend React Native Web estático (Zero-Node.js para Desktop)
 possible_dist_paths = [
