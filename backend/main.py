@@ -17,7 +17,8 @@ from routers.ingestion_router import router as ingestion_router
 from routers.curation_router import router as curation_router
 from analytics.router import analytics_router, license_router
 from fastapi.staticfiles import StaticFiles
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+if not logging.getLogger().handlers:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
 CHUNK_SIZE_BYTES = 1024 * 1024  # 1 MB
 MAX_CONCURRENT_TRAININGS = 2
